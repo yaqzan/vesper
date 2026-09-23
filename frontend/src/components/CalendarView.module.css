@@ -1,0 +1,377 @@
+.wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 16px var(--vsp-nav-clear);
+  animation: vsp-rise 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* --- Hero header: streak + month + missed -------------------------------- */
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: calc(var(--safe-top) + 20px) 4px 14px;
+  background: linear-gradient(
+    180deg,
+    var(--vsp-bg) 62%,
+    rgba(8, 8, 12, 0) 100%
+  );
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.streakBlock {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.streakNumberRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.flame {
+  color: var(--vsp-amber);
+  align-self: center;
+  filter: drop-shadow(0 0 10px rgba(217, 164, 65, 0.5));
+  animation: vsp-pulse 2.4s ease-in-out infinite;
+}
+
+.streakNumber {
+  font-family: var(--font-serif);
+  font-size: 3.4rem;
+  font-weight: 600;
+  line-height: 0.9;
+  color: var(--vsp-text);
+  font-variant-numeric: lining-nums;
+}
+
+.streakLabel {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--vsp-text-faint);
+}
+
+.heroDivider {
+  width: 1px;
+  align-self: stretch;
+  margin: 6px 0;
+  background: var(--vsp-border);
+}
+
+.heroStats {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: space-around;
+  gap: 12px;
+}
+
+.heroStat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.heroStatNum {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--vsp-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.heroStatDenom {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--vsp-text-faint);
+}
+
+.heroStatMissed {
+  color: var(--vsp-ember-bright);
+}
+
+.heroStatLabel {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--vsp-text-faint);
+}
+
+.progressTrack {
+  height: 5px;
+  margin-top: 16px;
+  border-radius: 999px;
+  background: var(--vsp-elevated);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--vsp-gold-dim), var(--vsp-gold-bright));
+  box-shadow: 0 0 14px rgba(201, 168, 76, 0.5);
+  transition: width 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* --- Month groups -------------------------------------------------------- */
+
+.timeline {
+  margin-top: 6px;
+}
+
+.monthGroup {
+  margin-top: 6px;
+}
+
+.monthHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 4px 6px;
+}
+
+.monthLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--vsp-text-faint);
+  white-space: nowrap;
+}
+
+.monthRule {
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--vsp-border);
+}
+
+/* --- Day rows: a vertical constellation thread --------------------------- */
+
+.row {
+  position: relative;
+  width: 100%;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 0 0;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: background 180ms ease, transform 120ms ease;
+}
+
+.rowHas:active {
+  background: var(--vsp-surface);
+  transform: scale(0.99);
+}
+
+.rowQuiet {
+  cursor: default;
+}
+
+.rowToday {
+  background: var(--vsp-gold-faint);
+}
+
+.rowMissed:active {
+  background: rgba(194, 71, 58, 0.08);
+}
+
+.rowNudge {
+  animation: vsp-nudge 320ms ease;
+}
+
+/* The rail holds the node and draws the thread connecting adjacent days. */
+.rail {
+  position: relative;
+  flex: 0 0 auto;
+  width: 40px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rail::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--vsp-border);
+}
+
+/* Recorded rows light the thread gold. */
+.rowHas .rail::before {
+  background: linear-gradient(
+    180deg,
+    rgba(201, 168, 76, 0.45),
+    rgba(201, 168, 76, 0.2)
+  );
+}
+
+.rowMissed .rail::before {
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(194, 71, 58, 0.5) 0 4px,
+    transparent 4px 9px
+  );
+}
+
+.node {
+  position: relative;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Recorded: a glowing gold star. */
+.nodeFilled {
+  background: radial-gradient(circle at 40% 35%, var(--vsp-gold-bright), var(--vsp-gold));
+  box-shadow:
+    0 0 0 4px rgba(201, 168, 76, 0.12),
+    0 0 14px rgba(201, 168, 76, 0.6);
+}
+
+/* Today (not yet recorded): a pulsing open ring inviting the night's entry. */
+.nodeToday {
+  background: transparent;
+  border: 2px solid var(--vsp-gold);
+  box-shadow: 0 0 0 4px rgba(201, 168, 76, 0.12);
+  animation: vsp-pulse 2.2s ease-in-out infinite;
+}
+
+/* Missed (since the goal began): an ember warning. */
+.nodeMissed {
+  background: transparent;
+  border: 2px solid var(--vsp-ember);
+  box-shadow: 0 0 12px rgba(194, 71, 58, 0.45);
+}
+
+/* Quiet empty day from before the goal. */
+.nodeEmpty {
+  background: transparent;
+  border: 1.5px solid var(--vsp-text-faint);
+  opacity: 0.6;
+}
+
+.countBadge {
+  position: absolute;
+  top: -7px;
+  right: -9px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--vsp-gold-bright);
+  color: #1c1408;
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 15px;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.dayLabel {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+}
+
+.rowHas .dayLabel {
+  font-weight: 600;
+  color: var(--vsp-text);
+}
+
+.rowMissed .dayLabel {
+  font-weight: 500;
+  color: var(--vsp-text-muted);
+}
+
+.rowToday .dayLabel {
+  font-weight: 700;
+  color: var(--vsp-gold-bright);
+}
+
+.rowQuiet:not(.rowMissed):not(.rowToday) .dayLabel {
+  font-weight: 400;
+  color: var(--vsp-text-faint);
+}
+
+.todayTag {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #1c1408;
+  background: var(--vsp-gold);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.rowRight {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.count {
+  font-size: 0.88rem;
+  color: var(--vsp-gold);
+  font-weight: 600;
+}
+
+.chevron {
+  color: var(--vsp-text-faint);
+}
+
+.missedTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--vsp-ember-bright);
+}
+
+.todayHint {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--vsp-gold);
+  opacity: 0.85;
+}
+
+.noEntry {
+  font-size: 0.9rem;
+  color: var(--vsp-text-faint);
+  opacity: 0.5;
+}
+
+.footSpace {
+  height: 12px;
+}

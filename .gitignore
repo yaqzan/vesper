@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+backend/.env
+.env
+ops/tailscale/state/
+# Retired 2026-08-22: the Obsidian vault is now the only store, so there is no
+# database and no local recordings folder. Backups of the final SQLite state
+# are kept out of git.
+backend/transcripts.db.bak-*
+# Derived cache of audio durations — rebuilt on demand, never authoritative.
+backend/.duration-cache.json
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+
+# Ops runtime output
+backups/
+ops/windows/logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Personal journal tooling and planning state - never committed
+.horizon/
+.planning/
+**/.planning/
+prompts/

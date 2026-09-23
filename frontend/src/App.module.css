@@ -1,0 +1,252 @@
+/* App shell — a dusk sky. Ambient gradient + faint star field behind a
+   full-height column. Content scrolls; a floating glass pill nav hovers at
+   the bottom of the viewport. */
+
+.authGate {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--vsp-bg);
+}
+
+.authGate svg {
+  animation: vsp-float 3s ease-in-out infinite;
+  filter: drop-shadow(0 6px 24px rgba(201, 168, 76, 0.3));
+}
+
+.offlineCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 32px;
+  text-align: center;
+}
+
+.offlineCard svg {
+  filter: drop-shadow(0 6px 24px rgba(201, 168, 76, 0.3));
+}
+
+.offlineText {
+  margin: 0;
+  max-width: 260px;
+  color: var(--vsp-text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.offlineRetry {
+  padding: 12px 28px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--vsp-elevated);
+  color: var(--vsp-gold);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 180ms ease;
+}
+
+.offlineRetry:active {
+  filter: brightness(1.1);
+}
+
+.app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(
+      135% 90% at 50% -25%,
+      var(--vsp-dusk) 0%,
+      rgba(22, 15, 40, 0.55) 32%,
+      rgba(8, 8, 12, 0) 62%
+    ),
+    radial-gradient(
+      120% 70% at 50% 4%,
+      rgba(201, 168, 76, 0.1) 0%,
+      rgba(8, 8, 12, 0) 50%
+    ),
+    var(--vsp-bg);
+}
+
+/* Ambient star field — a single cheap layer of tiny dots, slow global twinkle.
+   Positioned with hard-stop radial gradients so there's no extra DOM. */
+.app::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 14%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 28% 8%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1.5px 1.5px at 47% 18%, rgba(242, 217, 138, 0.7), transparent),
+    radial-gradient(1px 1px at 68% 10%, rgba(255, 255, 255, 0.55), transparent),
+    radial-gradient(1.5px 1.5px at 84% 16%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 91% 6%, rgba(201, 168, 76, 0.6), transparent),
+    radial-gradient(1px 1px at 8% 30%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1.5px 1.5px at 36% 34%, rgba(255, 255, 255, 0.45), transparent),
+    radial-gradient(1px 1px at 60% 28%, rgba(201, 168, 76, 0.5), transparent),
+    radial-gradient(1px 1px at 78% 36%, rgba(255, 255, 255, 0.4), transparent);
+  background-repeat: no-repeat;
+  animation: vsp-twinkle 6s ease-in-out infinite;
+}
+
+/* --- Settings entry ------------------------------------------------------ */
+
+.settingsBtn {
+  position: absolute;
+  top: calc(var(--safe-top) + 12px);
+  right: 14px;
+  z-index: 30;
+  padding: 9px;
+  background: transparent;
+  border: 0;
+  color: var(--vsp-text-faint);
+  cursor: pointer;
+  border-radius: 10px;
+  transition: color 200ms ease, transform 200ms ease;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.settingsBtn:hover {
+  color: var(--vsp-text-muted);
+}
+
+.settingsBtn:active {
+  color: var(--vsp-gold);
+  transform: rotate(35deg);
+}
+
+.content {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Top notices stack: failed uploads (PendingUploads). In-flight uploads are
+   NOT here -- they're the Record tab's nav ring plus the ghost lines in the
+   entry window, so nothing pushes the Record screen down. The stack owns the
+   safe-area inset; the right padding keeps it clear of the settings gear. */
+.notices {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 15;
+  padding: var(--safe-top) 44px 0 0;
+  background: var(--vsp-elevated);
+}
+
+/* The Recorder stays mounted on every tab (a recording must survive a tab
+   switch). visibility, not display:none — display:none drops the carousel's
+   and entry window's scroll positions. */
+.pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.paneHidden {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* --- Floating glass pill nav --------------------------------------------- */
+
+.tabbar {
+  position: absolute;
+  left: 50%;
+  bottom: var(--vsp-nav-gap);
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: stretch;
+  width: min(92vw, 380px);
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(18, 16, 24, 0.72);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid var(--vsp-border-strong);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* The sliding gold indicator. Width = one third of the inner track; it
+   translates to the active tab. --idx is set inline from the active index. */
+.indicator {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 6px;
+  width: calc((100% - 12px) / 3);
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(201, 168, 76, 0.22),
+    rgba(201, 168, 76, 0.12)
+  );
+  border: 1px solid rgba(201, 168, 76, 0.4);
+  box-shadow: 0 0 24px rgba(201, 168, 76, 0.22);
+  transform: translateX(calc(var(--idx, 0) * 100%));
+  transition: transform 380ms cubic-bezier(0.34, 1.4, 0.5, 1);
+  pointer-events: none;
+}
+
+.tab {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 0;
+  min-height: 58px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--vsp-text-faint);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: color 240ms ease, transform 120ms ease;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.tab:active {
+  transform: scale(0.9);
+}
+
+.iconWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.tabActive {
+  color: var(--vsp-gold-bright);
+}
+
+.tabLabel {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}

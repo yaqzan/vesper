@@ -1,0 +1,92 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: flex-end;
+  animation: vsp-fade-in 200ms ease both;
+}
+
+.sheet {
+  width: 100%;
+  max-height: 80vh;
+  background: var(--vsp-surface);
+  border-top: 1px solid var(--vsp-border-strong);
+  border-radius: 20px 20px 0 0;
+  padding: 12px 24px calc(var(--safe-bottom) + 28px);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  animation: vsp-sheet-up 280ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes vsp-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--vsp-border-strong);
+  align-self: center;
+  margin-bottom: 24px;
+}
+
+.title {
+  margin: 0 0 28px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--vsp-text);
+  letter-spacing: 0.01em;
+}
+
+.section {
+  margin-bottom: 28px;
+}
+
+.sectionLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vsp-text-faint);
+  margin-bottom: 8px;
+}
+
+.keyDisplay {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  color: var(--vsp-text-muted);
+  background: var(--vsp-elevated);
+  border: 1px solid var(--vsp-border);
+  border-radius: 10px;
+  padding: 13px 16px;
+}
+
+.doneBtn {
+  width: 100%;
+  padding: 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--vsp-elevated);
+  color: var(--vsp-gold);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 180ms ease;
+}
+
+.doneBtn:active {
+  filter: brightness(1.1);
+}

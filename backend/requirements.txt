@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+faster-whisper
+python-multipart
+python-dotenv
+aiofiles
+# CUDA 12 runtime libs for GPU inference — ctranslate2 needs cuBLAS + cuDNN at
+# run time and they aren't in the slim base image. Harmless on CPU (just larger);
+# delete these two lines for a lean CPU-only build.
+nvidia-cublas-cu12
+nvidia-cudnn-cu12

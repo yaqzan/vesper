@@ -1,0 +1,50 @@
+/* Sits over the Record tab's icon (App's .iconWrap), sized past it so the
+   ring circles the glyph rather than cutting through it. */
+.ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 500ms ease;
+}
+
+.ring[data-mode='idle'] {
+  opacity: 0;
+}
+
+.track,
+.fill {
+  fill: none;
+  stroke-width: 2;
+}
+
+.track {
+  stroke: var(--vsp-border-strong);
+}
+
+.fill {
+  stroke: var(--vsp-gold-bright);
+  stroke-linecap: round;
+  transition: stroke-dasharray 300ms ease;
+}
+
+/* Transcription has no real progress to show — the ring holds and breathes. */
+.ring[data-mode='transcribing'] .fill {
+  animation: vsp-pulse 1.6s ease-in-out infinite;
+}
+
+/* Recording while on another tab: ember, like the orb. */
+.ring[data-mode='recording'] .fill {
+  stroke: var(--vsp-ember-bright);
+  animation: vsp-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring .fill {
+    animation: none !important;
+  }
+}

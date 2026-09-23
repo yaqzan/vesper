@@ -1,0 +1,460 @@
+.wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 18px var(--vsp-nav-clear);
+  animation: vsp-rise 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: calc(var(--safe-top) + 20px) 0 12px;
+  background: linear-gradient(
+    180deg,
+    var(--vsp-bg) 68%,
+    rgba(8, 8, 12, 0) 100%
+  );
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.7rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--vsp-text);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 0;
+  margin-bottom: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--vsp-gold);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filterTitle {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--vsp-text);
+}
+
+/* --- Month accordion ----------------------------------------------------- */
+
+.month {
+  border-bottom: 1px solid var(--vsp-border);
+}
+
+.monthHeader {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.monthName {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--vsp-text);
+}
+
+.monthStats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--vsp-text-muted);
+  white-space: nowrap;
+}
+
+.statDays {
+  color: var(--vsp-gold);
+  font-weight: 700;
+}
+
+.statDot {
+  color: var(--vsp-text-faint);
+}
+
+.statEntries {
+  color: var(--vsp-text-faint);
+}
+
+.monthChevron {
+  margin-left: 4px;
+  color: var(--vsp-text-faint);
+  transform: rotate(90deg);
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.monthChevronOpen {
+  transform: rotate(-90deg);
+}
+
+.monthBody {
+  padding-bottom: 8px;
+  animation: vsp-rise 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* --- Day groups ---------------------------------------------------------- */
+
+.dayGroup {
+  margin-top: 4px;
+}
+
+.dayHeader {
+  padding: 10px 2px 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--vsp-gold);
+  opacity: 0.85;
+}
+
+/* --- Cards --------------------------------------------------------------- */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  position: relative;
+  padding: 16px 16px 14px 20px;
+  border: 1px solid var(--vsp-border);
+  border-radius: 16px;
+  background: linear-gradient(
+    180deg,
+    rgba(31, 28, 40, 0.5),
+    rgba(21, 20, 27, 0.5)
+  );
+  overflow: hidden;
+  animation: vsp-fade-in 320ms ease both;
+}
+
+/* A gold "spine" down the left edge — the bound edge of a diary page. */
+.spine {
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 8px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--vsp-gold-bright), var(--vsp-gold-dim));
+  box-shadow: 0 0 10px rgba(201, 168, 76, 0.4);
+}
+
+.cardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cardTime {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--vsp-gold);
+}
+
+.cardMeta {
+  font-size: 0.74rem;
+  color: var(--vsp-text-faint);
+  white-space: nowrap;
+}
+
+.body {
+  margin: 10px 0 0;
+  font-family: var(--font-serif);
+  font-size: 0.98rem;
+  line-height: 1.72;
+  color: var(--vsp-text-warm);
+  white-space: pre-wrap;
+}
+
+.showMore {
+  display: inline;
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--vsp-gold);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cardFoot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.trash {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--vsp-text-faint);
+  cursor: pointer;
+  transition: color 180ms ease, background 180ms ease;
+}
+
+.trash:active {
+  color: var(--vsp-ember-bright);
+  background: rgba(194, 71, 58, 0.14);
+}
+
+/* Edit lives where the trash used to. Deleting now costs a deliberate trip
+   through edit mode (see TranscriptList.jsx), which is the point. */
+.edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--vsp-text-faint);
+  cursor: pointer;
+  transition: color 180ms ease, background 180ms ease;
+}
+.edit:active {
+  color: var(--vsp-gold);
+  background: rgba(196, 154, 74, 0.14);
+}
+
+/* --- Edit mode ----------------------------------------------------------- */
+
+.cardEditing {
+  border-color: var(--vsp-gold);
+  box-shadow: 0 0 0 1px rgba(196, 154, 74, 0.18);
+}
+
+/* Tall enough to work in without becoming its own scroll trap on a phone; it
+   grows with the viewport rather than the transcript so cards stay uniform. */
+.editor {
+  display: block;
+  width: 100%;
+  min-height: 44vh;
+  margin: 4px 0 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--vsp-border);
+  border-radius: 12px;
+  background: rgba(12, 11, 16, 0.55);
+  color: var(--vsp-text-warm);
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  resize: vertical;
+  -webkit-appearance: none;
+}
+.editor:focus {
+  outline: none;
+  border-color: var(--vsp-gold);
+}
+.editor:disabled {
+  opacity: 0.6;
+}
+
+.editError {
+  margin: 0 0 10px;
+  color: var(--vsp-ember-bright);
+  font-size: 0.82rem;
+}
+
+.editFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.editActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Destructive action sits apart from Cancel/Save, labelled rather than a bare
+   glyph — at this depth it should read as a decision, not a tap target. */
+.deleteText {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--vsp-text-faint);
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 180ms ease, background 180ms ease;
+}
+.deleteText:active {
+  color: var(--vsp-ember-bright);
+  background: rgba(194, 71, 58, 0.14);
+}
+
+.cancel,
+.save {
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-family: var(--font-sans);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 180ms ease, background 180ms ease;
+}
+
+.cancel {
+  border: 1px solid var(--vsp-border);
+  background: transparent;
+  color: var(--vsp-text-muted);
+}
+
+.save {
+  border: 1px solid var(--vsp-gold);
+  background: rgba(196, 154, 74, 0.16);
+  color: var(--vsp-gold);
+}
+
+.cancel:disabled,
+.save:disabled,
+.deleteText:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* --- Empty states -------------------------------------------------------- */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 16vh 24px 0;
+  color: var(--vsp-text-muted);
+}
+
+.emptyIcon {
+  color: var(--vsp-gold);
+  margin-bottom: 16px;
+  opacity: 0.6;
+  animation: vsp-float 3.4s ease-in-out infinite;
+}
+
+.emptyTitle {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  color: var(--vsp-text-muted);
+}
+
+.emptySub {
+  margin: 10px 0 0;
+  font-size: 0.92rem;
+  color: var(--vsp-gold);
+  opacity: 0.9;
+}
+
+.emptyHint {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: var(--vsp-text-faint);
+}
+
+/* --- Skeleton ------------------------------------------------------------ */
+
+.skeletonWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.skeletonCard {
+  padding: 18px 16px;
+  border: 1px solid var(--vsp-border);
+  border-radius: 16px;
+}
+
+.skelLine,
+.skelBlock {
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--vsp-surface) 0%,
+    var(--vsp-elevated) 50%,
+    var(--vsp-surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: vsp-shimmer 1.4s ease-in-out infinite;
+}
+
+.skelLine {
+  height: 12px;
+  margin-bottom: 10px;
+}
+
+.skelBlock {
+  height: 64px;
+  margin-top: 14px;
+}
+
+@keyframes vsp-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.transcribing {
+  color: var(--vsp-text-faint);
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-style: italic;
+  animation: vsp-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes vsp-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 1;   }
+}
+
+.footSpace {
+  height: 12px;
+}

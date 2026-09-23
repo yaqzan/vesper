@@ -1,0 +1,176 @@
+/* Top-of-app notification banner. Amber left edge, slightly elevated. Sits
+   above the tab content, visible on every tab while items remain. Lists only
+   uploads that FAILED — in-flight ones show as the Record tab's nav ring
+   (NavProgressRing) and ghost lines in the entry window. */
+
+.banner {
+  flex: 0 0 auto;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 10px;
+  padding: 10px 14px; /* safe-area inset is on App's .notices stack */
+  background: var(--vsp-elevated);
+  border-left: 3px solid var(--vsp-amber);
+  border-bottom: 1px solid var(--vsp-border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  z-index: 15;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--vsp-text);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.warnIcon {
+  flex: 0 0 auto;
+  color: var(--vsp-amber);
+}
+
+.summaryText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.caret {
+  flex: 0 0 auto;
+  color: var(--vsp-text-muted);
+  font-size: 0.7rem;
+  transition: transform 200ms ease;
+}
+
+.caret[data-open='true'] {
+  transform: rotate(180deg);
+}
+
+.retryAll {
+  grid-column: 2;
+  padding: 8px 14px;
+  border: 1px solid var(--vsp-amber);
+  border-radius: 9px;
+  background: rgba(217, 164, 65, 0.12);
+  color: var(--vsp-amber);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 180ms ease,
+    transform 120ms ease;
+}
+
+.retryAll:active {
+  transform: scale(0.96);
+  background: rgba(217, 164, 65, 0.22);
+}
+
+.retryAll:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* --- Expanded list ------------------------------------------------------- */
+
+.list {
+  grid-column: 1 / -1;
+  list-style: none;
+  margin: 10px 0 2px;
+  padding: 0;
+  animation: vsp-fade-in 220ms ease both;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--vsp-border);
+}
+
+.itemInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.itemTime {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--vsp-text);
+}
+
+.itemMeta {
+  font-size: 0.74rem;
+  color: var(--vsp-text-muted);
+}
+
+.itemError {
+  font-size: 0.72rem;
+  color: #d98a8a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60vw;
+}
+
+.itemActions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.itemRetry {
+  padding: 7px 13px;
+  border: 1px solid var(--vsp-border-strong);
+  border-radius: 8px;
+  background: var(--vsp-surface);
+  color: var(--vsp-gold);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.itemRetry:active {
+  background: var(--vsp-gold-faint);
+}
+
+.itemRetry:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.itemDiscard {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--vsp-text-faint);
+  cursor: pointer;
+}
+
+.itemDiscard:active {
+  color: #d98a8a;
+  background: rgba(122, 29, 29, 0.18);
+}

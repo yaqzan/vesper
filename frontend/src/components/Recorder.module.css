@@ -1,0 +1,590 @@
+.recorder {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(var(--safe-top) + 22px) 0 var(--vsp-nav-clear);
+  animation: vsp-rise 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* The Record tab never scrolls — we own all gestures so a swipe can't drag
+     the page up/down. Horizontal swipes drive the carousel via JS. */
+  touch-action: none;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* --- Day carousel -------------------------------------------------------- */
+
+.dateHeader {
+  flex: 0 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Display-only strip: scrolled programmatically by the page-wide swipe, never
+   by direct touch (so a swipe anywhere on the page moves it). */
+.track {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  scroll-snap-type: x mandatory;
+  padding-inline: calc(50% - 46px); /* center first/last cell (CELL_W/2 = 46) */
+  touch-action: none;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 16%,
+    #000 84%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 16%,
+    #000 84%,
+    transparent
+  );
+}
+
+.cell {
+  flex: 0 0 auto;
+  height: 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  scroll-snap-align: center;
+  border: 0;
+  background: transparent;
+  color: var(--vsp-text-faint);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 260ms ease, color 260ms ease;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.cellWeekday {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.cellDay {
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--vsp-text-muted);
+  transition: font-size 260ms cubic-bezier(0.22, 1, 0.36, 1), color 260ms ease;
+}
+
+.cellDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.cellDotOn {
+  background: var(--vsp-gold);
+  box-shadow: 0 0 7px rgba(201, 168, 76, 0.7);
+}
+
+/* The centered (selected) day blooms large and gold. */
+.cellSel {
+  opacity: 1;
+}
+
+.cellSel .cellWeekday {
+  color: var(--vsp-gold);
+}
+
+.cellSel .cellDay {
+  font-size: 3.4rem;
+  color: var(--vsp-text);
+  text-shadow: 0 6px 26px rgba(0, 0, 0, 0.6);
+}
+
+.monthLine {
+  margin-top: 2px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  color: var(--vsp-text-muted);
+}
+
+/* "Where you left off" — the tail of the last entry. First child of the stage
+   stack and allowed to grow, so it stretches upward to claim whatever slack
+   sits between the date header and the record button — more entry visible,
+   nothing moved. It shrinks too when the page has no slack (see
+   .tailTextWrap) -- it must never overflow down into the orb. */
+.tail {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  width: 100%;
+  max-width: 400px;
+  padding: 0 26px;
+  text-align: center;
+}
+
+.tailLabel {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--vsp-gold);
+  opacity: 0.9;
+  margin-bottom: 8px;
+}
+
+/* Window holding the WHOLE entry, opened scrolled to the bottom (Recorder.jsx
+   sets scrollTop on change) so the final words are what you see first — but
+   scrollable back through everything said that day. Grows with the slack on
+   the page and shrinks when it's taken (the upload tray pushing the page
+   down). No min-height floor: a floor made the text spill down over the orb
+   instead of shrinking. Recorder.jsx re-pins to the bottom on every resize,
+   so a shrunken window still shows the last words.
+   `justify-content: flex-end` is deliberately NOT used here: in a scroll
+   container it pins short content to the bottom but makes overflowing content
+   unreachable upward in Firefox. Auto margin on the child does the same
+   bottom-anchoring safely. `pan-y` keeps this vertical drag away from the
+   page-level horizontal date swipe. */
+.tailTextWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: none;
+}
+.tailTextWrap::-webkit-scrollbar {
+  display: none;
+}
+.tailTextWrap > * {
+  margin-top: auto;
+}
+
+.tailText {
+  display: block;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.96rem;
+  line-height: 1.65;
+  color: var(--vsp-text-warm);
+}
+
+/* Ghost lines: entries still on their way ("Uploading 42%", "Transcribing…"),
+   sitting under the text where their words will land. Sans and muted so they
+   read as status, not as something you said. The only place upload status is
+   put into words -- the nav ring (NavProgressRing) is wordless. */
+.ghost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 8px;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--vsp-text-muted);
+  animation: vsp-fade-in 280ms ease both;
+}
+
+.ghostDot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--vsp-gold-bright);
+  animation: vsp-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ghostDot {
+    animation: none;
+  }
+}
+
+/* Empty days: the tail still stretches, so auto-margin keeps the label pinned
+   just above the record area rather than stranded under the date header. */
+.tailEmpty {
+  display: inline-block;
+  margin-top: auto;
+  padding-top: 14px;
+  font-size: 0.84rem;
+  color: var(--vsp-text-faint);
+}
+
+/* --- The glass orb ------------------------------------------------------- */
+
+/* The orb is the last child and the stage bottom-aligns, so the button sits
+   just above the floating nav. The day's "where you left off" text leads the
+   stack, directly above the orb (whose own caption says "Tap to record") —
+   read where you left off, then tap to continue — and grows upward to absorb all the page's vertical slack.
+   The padding lifts the whole stack off the nav — nudge that one value
+   to move the group, since it keeps their relative spacing intact. */
+.stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  padding-bottom: 26px;
+}
+
+.orb {
+  position: relative;
+  /* Unsquashable. As a stage child it would otherwise let flexbox shave its
+     HEIGHT whenever the grown entry window overflows
+     a short screen — leaving a wide oval pinned at min-height. Refusing to
+     shrink keeps width == height == min(52vw, 184px): always a circle. */
+  flex-shrink: 0;
+  width: min(52vw, 184px);
+  height: min(52vw, 184px);
+  min-width: 136px;
+  min-height: 136px;
+  border-radius: 50%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  animation: vsp-orb-breathe 4.6s ease-in-out infinite;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.orb:active {
+  transform: scale(0.96);
+}
+
+.orb:disabled {
+  cursor: default;
+}
+
+/* Soft glow halo behind the sphere. */
+.aura {
+  position: absolute;
+  inset: -14%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    var(--vsp-gold-glow) 0%,
+    rgba(201, 168, 76, 0) 68%
+  );
+  pointer-events: none;
+  animation: vsp-aura 4.6s ease-in-out infinite;
+}
+
+/* The glass body: a lit sphere with a gold rim. */
+.sphere {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      120% 120% at 32% 22%,
+      rgba(255, 255, 255, 0.16) 0%,
+      rgba(255, 255, 255, 0) 34%
+    ),
+    radial-gradient(
+      90% 90% at 50% 116%,
+      rgba(201, 168, 76, 0.22) 0%,
+      rgba(201, 168, 76, 0) 52%
+    ),
+    radial-gradient(circle at 50% 44%, #322a4c 0%, #1d1736 52%, #0c0a18 100%);
+  box-shadow:
+    inset 0 3px 9px rgba(255, 255, 255, 0.18),
+    inset 0 -28px 52px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1.5px rgba(201, 168, 76, 0.38),
+    0 24px 50px rgba(0, 0, 0, 0.6);
+}
+
+/* Crisp specular highlight, upper-left. */
+.gloss {
+  position: absolute;
+  top: 11%;
+  left: 19%;
+  width: 40%;
+  height: 28%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 42% 40%,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0) 70%
+  );
+}
+
+/* Subtle grounding shadow inside the lower edge. */
+.shadow {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    80% 60% at 50% 108%,
+    rgba(0, 0, 0, 0.45) 0%,
+    rgba(0, 0, 0, 0) 60%
+  );
+}
+
+.orbIcon {
+  position: relative;
+  z-index: 2;
+  color: var(--vsp-gold-bright);
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+}
+
+/* --- Recording: warm ember sphere + radiating ripples -------------------- */
+
+.recording {
+  animation: vsp-orb-record 1.8s ease-in-out infinite;
+}
+
+.recording .sphere {
+  background:
+    radial-gradient(
+      120% 120% at 32% 22%,
+      rgba(255, 240, 232, 0.28) 0%,
+      rgba(255, 240, 232, 0) 34%
+    ),
+    radial-gradient(circle at 50% 46%, #d2554a 0%, #8a2a23 52%, #2a0d12 100%);
+  box-shadow:
+    inset 0 3px 9px rgba(255, 255, 255, 0.22),
+    inset 0 -28px 52px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1.5px rgba(232, 119, 95, 0.55),
+    0 0 60px rgba(194, 71, 58, 0.4),
+    0 24px 50px rgba(0, 0, 0, 0.6);
+}
+
+.recording .aura {
+  background: radial-gradient(
+    circle,
+    var(--vsp-ember-glow) 0%,
+    rgba(194, 71, 58, 0) 68%
+  );
+}
+
+.recording .orbIcon {
+  color: #fff0e8;
+}
+
+.ripples {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--vsp-ember-bright);
+  pointer-events: none;
+  animation: vsp-ripple 2.7s ease-out infinite;
+}
+
+/* --- Live audio reaction ------------------------------------------------- */
+
+/* The spectrum ring canvas. Sized past the sphere so bars radiate outward;
+   the JS loop reads clientWidth from this box, so keep it square. */
+.ring {
+  position: absolute;
+  left: -26%;
+  top: -26%;
+  width: 152%;
+  height: 152%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* With a meter attached, loudness replaces the canned pulse: `--vsp-level`
+   (0..1) is written to the orb every frame by AudioRing. The short linear
+   transition just takes the edge off frame-to-frame jitter. */
+.recording.reactive {
+  animation: none;
+  transform: scale(calc(1 + var(--vsp-level, 0) * 0.06));
+  transition: transform 60ms linear;
+}
+
+.recording.reactive .aura {
+  animation: none;
+  opacity: calc(0.38 + var(--vsp-level, 0) * 0.62);
+  transform: scale(calc(1 + var(--vsp-level, 0) * 0.16));
+  transition: opacity 60ms linear, transform 60ms linear;
+}
+
+/* Ripples fade back in silence so they read as your voice, not a metronome. */
+.recording.reactive .ripples {
+  opacity: calc(0.1 + var(--vsp-level, 0) * 0.9);
+  transition: opacity 90ms linear;
+}
+
+/* The ring itself is the feedback, so it stays. The orb's own swelling is
+   decoration on top of it — drop that. */
+@media (prefers-reduced-motion: reduce) {
+  .recording.reactive,
+  .recording.reactive .aura {
+    transform: none;
+  }
+}
+
+/* --- Busy / done --------------------------------------------------------- */
+
+.busy {
+  animation: none;
+}
+
+.busy .sphere {
+  filter: saturate(0.65) brightness(0.78);
+}
+
+.sweep {
+  position: absolute;
+  inset: -9px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--vsp-gold-bright);
+  border-right-color: var(--vsp-gold);
+  pointer-events: none;
+  animation: vsp-sweep 0.9s linear infinite;
+}
+
+.done {
+  animation: none;
+}
+
+.done .sphere {
+  background:
+    radial-gradient(
+      120% 120% at 32% 22%,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0) 34%
+    ),
+    radial-gradient(circle at 50% 44%, #4a3f24 0%, #2a2440 60%, #0c0a18 100%);
+  box-shadow:
+    inset 0 0 0 1.5px rgba(201, 168, 76, 0.6),
+    inset 0 -24px 50px rgba(0, 0, 0, 0.6),
+    0 0 50px rgba(201, 168, 76, 0.25),
+    0 24px 50px rgba(0, 0, 0, 0.6);
+}
+
+.bloom {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--vsp-gold-bright);
+  pointer-events: none;
+  animation: vsp-bloom 900ms ease-out forwards;
+}
+
+/* --- Orb row: timer inside, discard beside -------------------------------- */
+
+/* Holds the orb centred with the discard button hung off its right edge, so
+   the button never shifts the orb sideways when it appears. */
+.orbRow {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+}
+
+/* Stop glyph over the running time, both inside the sphere. The timer lives
+   here rather than in its own row: a row above the orb got pushed down behind
+   it whenever the day's entry filled the page. */
+.orbStack {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.orbLabel {
+  max-width: 7.5em;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--vsp-gold-bright);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+  animation: vsp-fade-in 320ms ease both;
+}
+
+.orbTimer {
+  font-size: 1.45rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  color: #fff0e8;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+}
+
+/* Scraps the current take (Recorder.jsx confirms first). Sits in the gutter
+   right of the orb, vertically centred on it. */
+.discard {
+  position: absolute;
+  top: 50%;
+  left: calc(50% + min(26vw, 92px) + 22px);
+  margin-top: -24px; /* not a transform: the fade-in keyframe owns transform */
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--vsp-border-strong);
+  background: rgba(18, 16, 24, 0.72);
+  color: var(--vsp-text-muted);
+  cursor: pointer;
+  animation: vsp-fade-in 260ms ease both;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+
+.discard:active {
+  color: var(--vsp-ember-bright);
+  border-color: var(--vsp-ember);
+}
+
+/* --- File drop zone row -------------------------------------------------- */
+
+.dropRow {
+  display: none;
+}
+
+@media (pointer: fine) {
+  .dropRow {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: 420px;
+    padding: 0 24px 4px;
+    display: block;
+  }
+}

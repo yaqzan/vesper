@@ -1,0 +1,64 @@
+.zone {
+  flex: 0 0 auto;
+  padding: 15px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: var(--vsp-text-faint);
+  cursor: pointer;
+  transition:
+    border-color 200ms ease,
+    background 200ms ease,
+    color 200ms ease;
+  -webkit-user-select: none;
+  user-select: none;
+  outline: none;
+}
+
+.zone:focus-visible {
+  outline: 2px solid var(--vsp-gold-glow);
+  outline-offset: 2px;
+}
+
+.zone:hover:not(.uploading):not(.muted) {
+  border-color: rgba(255, 255, 255, 0.18);
+  color: var(--vsp-text-muted);
+}
+
+.over {
+  border-color: var(--vsp-gold) !important;
+  background: var(--vsp-gold-faint);
+  color: var(--vsp-gold) !important;
+}
+
+.uploading {
+  cursor: default;
+  border-color: var(--vsp-gold-dim);
+  color: var(--vsp-text-muted);
+  animation: vsp-pulse 1.8s ease-in-out infinite;
+}
+
+.done {
+  border-color: var(--vsp-gold);
+  color: var(--vsp-gold);
+}
+
+.errored {
+  border-color: #6a2020;
+  color: #b36060;
+}
+
+.muted {
+  cursor: default;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}

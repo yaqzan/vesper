@@ -1,0 +1,245 @@
+/* Vesper global styles — "Nightfall" design system.
+   Vesper is the evening star; the app is a dusk sky you fill with stars.
+   Palette tokens, resets, ambient sky, and shared motion live here.
+   Component-specific styling lives in *.module.css next to each component. */
+
+:root {
+  /* --- Night surfaces (warm near-black, lifted cool toward the horizon) --- */
+  --vsp-bg: #08080c;
+  --vsp-surface: #15141b;
+  --vsp-elevated: #1f1c28;
+  --vsp-border: rgba(255, 255, 255, 0.07);
+  --vsp-border-strong: rgba(255, 255, 255, 0.13);
+
+  /* --- Twilight indigo — the dusk sky behind the evening star ------------- */
+  --vsp-dusk: #2a2140;
+  --vsp-dusk-deep: #160f28;
+  --vsp-indigo: #6c4ea8;
+  --vsp-indigo-glow: rgba(120, 88, 190, 0.30);
+  --vsp-indigo-faint: rgba(120, 88, 190, 0.12);
+
+  /* --- Gold — Venus, the evening star (the accent) ----------------------- */
+  --vsp-gold: #c9a84c;
+  --vsp-gold-bright: #f2d98a;
+  --vsp-gold-dim: #a8852e;
+  --vsp-gold-glow: rgba(201, 168, 76, 0.16);
+  --vsp-gold-faint: rgba(201, 168, 76, 0.08);
+
+  /* --- Ember — recording warmth + the "missed day" warning --------------- */
+  --vsp-ember: #c2473a;
+  --vsp-ember-bright: #e8775f;
+  --vsp-ember-deep: #2a0d0d;
+  --vsp-ember-glow: rgba(194, 71, 58, 0.22);
+  --vsp-amber: #d9a441;
+
+  /* --- Text -------------------------------------------------------------- */
+  --vsp-text: #ececf0;
+  --vsp-text-warm: #ddd5cb; /* transcript body — slightly warm white */
+  --vsp-text-muted: #8a8794;
+  --vsp-text-faint: #585563;
+
+  --font-sans: 'Plus Jakarta Sans Variable', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Lora', Georgia, serif;
+
+  /* Safe-area shorthands for iPhone notch / home indicator */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* How far the floating nav sits above the bottom edge. It hugs the bottom,
+     just clear of the home indicator — sitting the full safe area *plus* a gap
+     above it leaves the pill stranded partway up the screen. */
+  --vsp-nav-gap: max(10px, calc(var(--safe-bottom) - 10px));
+
+  /* Nav clearance for scroll regions: the pill is 72px tall, plus its gap and
+     a little breathing room. Keep this in step with --vsp-nav-gap. */
+  --vsp-nav-clear: calc(76px + var(--vsp-nav-gap));
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--vsp-bg);
+  color: var(--vsp-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent rubber-band scroll bouncing the whole app on iOS. */
+  overscroll-behavior: none;
+}
+
+/* Mantine paints its own body background; force ours through. */
+body,
+.mantine-AppShell-root {
+  background: var(--vsp-bg) !important;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Smooth, momentum scrolling for every scroll region on iOS. */
+.vsp-scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* ======================================================================== */
+/*  Shared motion                                                            */
+/* ======================================================================== */
+
+/* The slow "breath" of the orb at rest — transform only; the glass sphere
+   keeps its own static shadows, and the aura layer handles the glow. */
+@keyframes vsp-orb-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+/* Faster pulse while actively recording. */
+@keyframes vsp-orb-record {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.045);
+  }
+}
+
+/* The aura glow behind the orb, pulsing softly. */
+@keyframes vsp-aura {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.08);
+  }
+}
+
+/* Concentric sound ripples radiating from the recording orb. */
+@keyframes vsp-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+/* A gold bloom when a recording is saved. */
+@keyframes vsp-bloom {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+/* Thin sweeping arc for the "transcribing" busy state. */
+@keyframes vsp-sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes vsp-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Content rising into view (tab switches, lists). */
+@keyframes vsp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes vsp-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes vsp-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+
+/* Slow twinkle for the ambient star field. */
+@keyframes vsp-twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* Gentle float for the evening-star glyph. */
+@keyframes vsp-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

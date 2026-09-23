@@ -1,0 +1,7 @@
+**/__pycache__/
+**/*.pyc
+frontend/node_modules
+backend/.env
+backend/transcripts.db
+backend/transcripts.db-*
+.git
