@@ -35,6 +35,16 @@ Names are still imperfect either way -- Whisper mishears proper nouns regardless
 
 Worth revisiting after a GPU upgrade. Settle it with the same kind of bake-off on real entries as 2026-08-18, scored on names and semantic errors, not benchmark WER.
 
+## Repetition loops
+
+Symptom: a phrase repeated 4+ times in a row, covering real speech ("I'm going to prison." x15 where the audio says "of course he's threatening me"), or stock filler over a quiet tail ("Thank you." x8, "Thanks for watching!").
+
+Cause: Whisper decodes 30s windows, each primed with the previous window's text (`condition_on_previous_text`, default on). When audio goes ambiguous -- a pause, mumbling, filler ("we... uh"), a tired late-night voice -- the decoder leans on its own prior output and copies it. Once one window loops, the prompt carries the loop forward. Most loops start right after a pause or trailing-off phrase.
+
+Fix (2026-09-30): `transcribe_file` sets `condition_on_previous_text=False`, `word_timestamps=True`, `hallucination_silence_threshold=2`. Re-running the 17 looped entries with these: 14 came out clean and several recovered speech the loop had hidden; the other 3 were real repetition (quoting a kid's "go go go", "No, no, no, no"). Cost: word timestamps add some time (still ~15-20x realtime); output is sometimes lowercase/unpunctuated in places. Don't revert to the defaults.
+
+The 14 were repaired by splicing only the looped span from the re-run into the existing file (keeps formatting and hand edits), not by replacing whole transcripts. Memoir notes quoting a transcript need the same splice.
+
 ## Re-transcribing a failed entry
 
 A failed transcription leaves audio in the vault with **no `.txt` beside it** -- identical to a pending entry, so a restart re-queues it automatically (`on_startup` in `main.py`). Nothing to run by hand.

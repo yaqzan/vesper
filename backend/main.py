@@ -446,6 +446,13 @@ def transcribe_file(path: str) -> tuple[str, float]:
         language="en",
         beam_size=5,
         initial_prompt=WHISPER_INITIAL_PROMPT,
+        # Stop repetition loops ("I'm sorry, I'm sorry, ..."). Feeding each
+        # window's text into the next let one stuck window poison the rest,
+        # and the silence threshold drops text invented over long pauses.
+        # See .claude/docs/transcription.md "Repetition loops".
+        condition_on_previous_text=False,
+        word_timestamps=True,
+        hallucination_silence_threshold=2,
     )
     text = " ".join(segment.text.strip() for segment in segments).strip()
     for pattern, replacement in WHISPER_SUBSTITUTIONS:
