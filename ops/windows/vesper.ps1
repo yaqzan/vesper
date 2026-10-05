@@ -45,10 +45,13 @@ function Write-Status {
 
     $health = Test-Health
     if ($health) {
-        Write-Host "  /health   : ok  model_loaded=$($health.model_loaded)"
+        Write-Host "  /health   : ok  entries=$($health.entries)"
     } else {
         Write-Host "  /health   : unreachable"
     }
+    $tr = & { $ErrorActionPreference = 'SilentlyContinue'; docker inspect -f '{{.State.Status}}' vesper-transcriber 2>$null }
+    if (-not $tr) { $tr = 'never started' }
+    Write-Host "  GPU worker: $tr (starts on demand; see ops/windows/waker.ps1)"
     Write-Host ""
 }
 
@@ -74,13 +77,13 @@ switch ($Action) {
 
     'stop' {
         Write-Host "Stopping Vesper..."
-        docker compose -f $Compose down
+        docker compose -f $Compose --profile worker down
         Write-Host "Stopped."
     }
 
     'restart' {
         Write-Host "Recreating Vesper (will pick up current .env)..."
-        docker compose -f $Compose down
+        docker compose -f $Compose --profile worker down
         docker compose -f $Compose up -d
         Write-Host "Restarted."
         Write-Status

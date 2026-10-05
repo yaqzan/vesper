@@ -3,7 +3,7 @@
 ## Request flow
 1. iOS PWA records audio -> handed to the upload queue (`lib/useUploadQueue.js`), which writes it to IndexedDB as `status: 'queued'` **before** uploading. The orb is free again at once; uploads run one at a time in the background while you browse or record again.
 2. XHR multipart POST to `/api/transcribe` (XHR, not fetch, for upload progress; aborted only after 45s with **no progress**, never on a fixed total -- long recordings on a slow uplink must finish). No app-level auth -- the tailnet is the access boundary.
-3. Upload is staged to a temp file (size-capped as it streams), then moved into the vault day folder; response returns in <1s and a `BackgroundTask` runs `faster-whisper` afterward (see [transcription.md](transcription.md)). Staging outside the vault means a rejected upload never leaves a partial file where the memoir pipeline or the next scan would find it.
+3. Upload is staged to a temp file (size-capped as it streams), then moved into the vault day folder; response returns in <1s and the on-demand GPU worker (`backend/worker.py`) transcribes it afterward and writes the `.txt` (see [transcription.md](transcription.md)). Staging outside the vault means a rejected upload never leaves a partial file where the memoir pipeline or the next scan would find it.
 4. Frontend polls `/api/transcripts` every 3s while any entry has `transcript: null`; response shape: `{id, date, transcript, duration_seconds, word_count, created_at}`
 5. Success deletes the IndexedDB record. Failure flips it to `status: 'failed'` -> PendingUploads banner (retry / discard); failed ones auto-retry on the `online` event.
 6. **An app closed mid-upload** leaves a `'queued'` record; the next launch restarts it (`resume()` in App.jsx). iOS suspends a backgrounded PWA's network and Safari has no Background Sync/Fetch, so the app must be open for bytes to move -- but nothing is lost.
@@ -13,7 +13,7 @@
 Single-file FastAPI app.
 - **No app-level auth.** Access is restricted at the network layer: reachable only through the `tailscale` sidecar container (see [networking.md](networking.md)) -- no API key to configure or rotate.
 - **Rate limiting** runs on `/api/*` -- per-IP sliding window, keyed off `X-Forwarded-For` (set by the sidecar's proxy)
-- **Model loading** -- `faster-whisper` loaded once at startup in a module-level variable; `/api/transcribe` returns 503 until ready
+- **No model.** Transcription is `backend/worker.py`, a separate GPU container started on demand by `ops/windows/waker.ps1`; the API only sees its results via `refresh_pending()`
 - **Static serving** -- `frontend/dist/` mounted at `/` via `StaticFiles(html=True)`; must remain the last mount so it acts as SPA fallback
 - **No database.** The Obsidian vault holds every entry as a `<date>/NN - H.MMpm.{txt,audio}` pair; an in-memory index built at startup answers reads. Ids derive from the file path, pending state is "audio with no `.txt`", nothing Vesper stores is unique to it. Read [vault.md](vault.md) before touching anything that reads/writes an entry.
 - `local_date` on upload lets the client pass the device's journal date, which becomes the vault folder (avoids UTC drift).
@@ -22,8 +22,9 @@ Single-file FastAPI app.
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| `GET` | `/health` | Unauthenticated; reports `model_loaded`, indexed `entries`, whether the `vault` is mounted |
-| `POST` | `/api/transcribe` | Multipart upload; returns immediately, transcribes in background |
+| `GET` | `/health` | Unauthenticated; reports indexed `entries`, whether the `vault` is mounted |
+| `GET` | `/api/queue` | `{pending}` -- recordings awaiting a transcript; polled by the waker |
+| `POST` | `/api/transcribe` | Multipart upload; saves to the vault and returns immediately; the worker transcribes later |
 | `GET` | `/api/transcripts[?date=]` | Newest first, served from the index |
 | `GET` | `/api/calendar` | Per-day entry counts |
 | `PATCH` | `/api/transcripts/{id}` | Replace transcript text -- writes the vault `.txt`, which *is* the entry |

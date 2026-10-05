@@ -4,7 +4,7 @@ Guidance for Claude Code in this repo.
 
 ## What This Is
 
-Vesper is a personal voice-journaling PWA with a home-hosted GPU transcription backend. iOS records audio -> uploads to `/api/transcribe` -> `faster-whisper` on GTX 1080 Ti -> written straight into the Obsidian vault. Served single-origin on port 8000, reachable only over the Tailscale tailnet via its own sidecar node (`vesper.<tailnet>.ts.net`) -- no public exposure, no app-level API key.
+Vesper is a personal voice-journaling PWA with a home-hosted GPU transcription backend. iOS records audio -> uploads to `/api/transcribe` -> saved into the Obsidian vault -> an on-demand `faster-whisper` GPU container (GTX 1080 Ti, started by the host-side waker, exits when idle) writes the transcript beside it. Served single-origin on port 8000, reachable only over the Tailscale tailnet via its own sidecar node (`vesper.<tailnet>.ts.net`) -- no public exposure, no app-level API key.
 
 **There is no database.** The vault folder (`VESPER_VAULT_DIR`, e.g. an Obsidian `Recordings\<date>\`) holds every entry as a `NN - H.MMpm.txt` + audio pair; Vesper serves them from an in-memory index rebuilt at startup. Read [vault.md](.claude/docs/vault.md) before touching storage.
 
@@ -47,7 +47,7 @@ npm run build
 
 **Reaching the installed PWA is a separate problem from the container serving new files** -- `frontend/public/sw.js` is deliberately network-first for the HTML document and cache-first for `/assets/*`, so a stale phone install needs `CACHE_VERSION` bumped in `sw.js` plus a full close/reopen of the PWA. Don't revert the document to cache-first -- see [deployment.md](.claude/docs/deployment.md).
 
-**Backend changed** (`backend/main.py` or `backend/.env`) -- restart:
+**Backend changed** (`backend/main.py` or `backend/.env`) -- restart (`backend/worker.py` alone needs nothing: the transcriber re-reads it each time it starts):
 ```powershell
 .\ops\windows\vesper.ps1 restart    # full recreate (required for .env changes)
 docker compose restart vesper       # main.py-only changes
@@ -59,7 +59,7 @@ docker compose restart vesper       # main.py-only changes
 
 - [vault.md](.claude/docs/vault.md) -- **start here for anything storage-related**: the vault as sole source of truth, the in-memory index, filenames, durations, deleting
 - [architecture.md](.claude/docs/architecture.md) -- request flow, API table, backend/frontend file-by-file detail
-- [transcription.md](.claude/docs/transcription.md) -- faster-whisper/GPU config, model choice, name-substitution list, ElevenLabs history
+- [transcription.md](.claude/docs/transcription.md) -- on-demand worker + waker, faster-whisper/GPU config, model choice, name-substitution list, ElevenLabs history
 - [networking.md](.claude/docs/networking.md) -- Tailscale sidecar setup
 - [ops.md](.claude/docs/ops.md) -- watchdog, docker-compose hardening
 - [deployment.md](.claude/docs/deployment.md) -- service worker caching design

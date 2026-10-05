@@ -1,4 +1,5 @@
-# Registers two Scheduled Tasks (run as Administrator):
+# Registers three Scheduled Tasks (run as Administrator):
+#   * "Vesper Waker"    -- at logon, long-running; starts the GPU transcriber on demand.
 #   * "Vesper Watchdog" — at logon, then every 5 minutes, keeps the stack alive.
 #   * "Vesper Backup"   — daily at 03:30, snapshots the transcript DB.
 #
@@ -22,13 +23,15 @@ if (-not $principalCheck.IsInRole([Security.Principal.WindowsBuiltInRole]::Admin
 
 $watchdog = Join-Path $PSScriptRoot 'watchdog.ps1'
 $backup   = Join-Path $PSScriptRoot 'backup.ps1'
+$waker    = Join-Path $PSScriptRoot 'waker.ps1'
 $user     = "$env:USERDOMAIN\$env:USERNAME"
 
 function Register-VesperTask {
     param(
         [string]$Name,
         [string]$ScriptPath,
-        [object[]]$Triggers
+        [object[]]$Triggers,
+        [switch]$Forever
     )
     $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
         -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$ScriptPath`""
@@ -36,7 +39,8 @@ function Register-VesperTask {
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries `
         -DontStopIfGoingOnBatteries -StartWhenAvailable `
         -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
-        -ExecutionTimeLimit (New-TimeSpan -Minutes 15)
+        -ExecutionTimeLimit $(if ($Forever) { [TimeSpan]::Zero } else { New-TimeSpan -Minutes 15 }) `
+        -MultipleInstances IgnoreNew
     Register-ScheduledTask -TaskName $Name -Action $action -Trigger $Triggers `
         -Principal $principal -Settings $settings -Force | Out-Null
     Write-Host "  registered: $Name" -ForegroundColor Green
@@ -54,6 +58,14 @@ $repeat = New-ScheduledTaskTrigger -Once -At (Get-Date) `
 $repeat.Repetition.Duration = ''
 $wdTrigger.Repetition = $repeat.Repetition
 Register-VesperTask -Name 'Vesper Watchdog' -ScriptPath $watchdog -Triggers @($wdTrigger)
+
+# --- Waker: long-running loop; the 5-minute repeat only restarts it if it died ---
+$wkTrigger = New-ScheduledTaskTrigger -AtLogOn
+$wkRepeat = New-ScheduledTaskTrigger -Once -At (Get-Date) `
+    -RepetitionInterval (New-TimeSpan -Minutes 5)
+$wkRepeat.Repetition.Duration = ''
+$wkTrigger.Repetition = $wkRepeat.Repetition
+Register-VesperTask -Name 'Vesper Waker' -ScriptPath $waker -Triggers @($wkTrigger) -Forever
 
 # --- Backup: daily at 03:30 ---
 $bkTrigger = New-ScheduledTaskTrigger -Daily -At '3:30AM'

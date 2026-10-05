@@ -3,6 +3,7 @@
 # Run on a schedule (every ~5 min) by install-tasks.ps1. Each tick it:
 #   1. Makes sure the Docker engine is reachable (launches Docker Desktop if not).
 #   2. Makes sure the `vesper` container is up and healthy (compose up / restart).
+#      The GPU `transcriber` is deliberately NOT kept up -- waker.ps1 starts it on demand.
 #   3. Makes sure the `cloudflared` tunnel service is running.
 # Decisions are based on Docker's own health status, which respects the
 # container's start_period — so the long first-boot model download does NOT
@@ -68,7 +69,7 @@ function Ensure-Container {
     }
     elseif ($health -eq 'unhealthy') {
         Write-Log 'Container reports unhealthy; recreating (picks up current .env).'
-        docker compose -f $Compose down 2>&1 | ForEach-Object { Write-Log "  $_" }
+        docker compose -f $Compose --profile worker down 2>&1 | ForEach-Object { Write-Log "  $_" }
         docker compose -f $Compose up -d 2>&1 | ForEach-Object { Write-Log "  $_" }
     }
     else {

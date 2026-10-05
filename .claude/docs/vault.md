@@ -21,12 +21,12 @@ A full vault read is ~1.4s through the Windows bind mount and grows with the cor
 
 - The index is **pure cache** -- holds nothing the files don't.
 - **Identity is the file's path**: `sha1("<date>/<stem>")[:16]`. Deterministic, so ids survive a rebuild with nothing to persist.
-- **`transcript is None` means "still transcribing"** -- audio present, no `.txt` beside it yet. The vault encodes pending state by itself, so there's no queue to keep in sync. At startup, any such entry is re-queued; a crash mid-transcription recovers for free. (Verified zero pre-existing audio-without-transcript files before relying on this.)
+- **`transcript is None` means "still transcribing"** -- audio present, no `.txt` beside it yet. The vault encodes pending state by itself, so there's no queue to keep in sync. The on-demand worker (`backend/worker.py`) scans the vault for these, so a crash mid-transcription recovers for free. (Verified zero pre-existing audio-without-transcript files before relying on this.)
 - `<date>.md` memoir notes are neither `.txt` nor audio, so they never become entries.
 
 ### Refreshing
 
-The index refreshes **at startup and on Vesper's own writes only** -- chosen over background polling. Consequence: a transcript edited directly in Obsidian won't appear in Vesper until it re-reads. Force it without a restart:
+The index refreshes **at startup, on Vesper's own writes, and for pending entries (`refresh_pending`, to pick up the worker's transcripts)** -- chosen over background polling. Consequence: a transcript edited directly in Obsidian won't appear in Vesper until it re-reads. Force it without a restart:
 
 ```powershell
 curl -X POST http://localhost:8000/api/reindex
@@ -44,7 +44,7 @@ curl -X POST http://localhost:8000/api/reindex
 
 `formatMeta` shows "589 words · 3m 55s". Duration is cached in `backend/.duration-cache.json`, keyed by path, invalidated on mtime/size. Derived, disposable, gitignored.
 
-**`MediaRecorder` webm files carry no duration in their container header** -- everything the PWA records. `ffprobe`'s metadata read returns nothing for them, so `probe_duration` falls back to decoding the file and reading the final timestamp (~1.5s for four minutes). That's why probing runs in the background after the index is already serving, never in front of a request. Anything Vesper transcribes itself skips this: Whisper reports duration directly.
+**`MediaRecorder` webm files carry no duration in their container header** -- everything the PWA records. `ffprobe`'s metadata read returns nothing for them, so `probe_duration` falls back to decoding the file and reading the final timestamp (~1.5s for four minutes). That's why probing runs in the background after the index is already serving, never in front of a request. A finished transcript is probed once in `refresh_pending` (the worker is a separate process and doesn't report duration).
 
 Entries with no audio at all (a few transcript-only files) legitimately have no duration; the UI omits "· 0s" rather than printing a lie.
 

@@ -11,6 +11,10 @@ that the read endpoints answer from; writes go to the vault first and update
 the index after. Delete the index and nothing is lost — it is rebuilt from the
 files. See .claude/docs/vault.md.
 
+This process only receives uploads and serves reads. Transcription happens in
+`backend/worker.py`, a separate GPU container the host starts on demand (see
+.claude/docs/transcription.md); the vault is the hand-off between the two.
+
 Also serves the compiled PWA as static files. Single origin: this one server
 (port 8000) serves both the API and the app.
 """
@@ -34,7 +38,6 @@ from zoneinfo import ZoneInfo
 import aiofiles
 from dotenv import load_dotenv
 from fastapi import (
-    BackgroundTasks,
     Depends,
     FastAPI,
     Form,
@@ -50,29 +53,6 @@ from pydantic import BaseModel, Field
 load_dotenv()
 
 # --- Configuration -----------------------------------------------------------
-
-WHISPER_MODEL = os.getenv("WHISPER_MODEL", "large-v3")
-WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cuda")
-WHISPER_COMPUTE_TYPE = os.getenv("WHISPER_COMPUTE_TYPE", "int8_float32")
-WHISPER_INITIAL_PROMPT = os.getenv("WHISPER_INITIAL_PROMPT") or None
-
-
-def _parse_substitutions(raw: str) -> list[tuple[re.Pattern, str]]:
-    """Parse 'Wrong:Right,Also Wrong:Right' into compiled whole-word,
-    case-insensitive regexes. Misheard names are the main use case."""
-    pairs = []
-    for chunk in raw.split(","):
-        chunk = chunk.strip()
-        if not chunk or ":" not in chunk:
-            continue
-        wrong, right = chunk.split(":", 1)
-        wrong, right = wrong.strip(), right.strip()
-        if wrong and right:
-            pairs.append((re.compile(rf"\b{re.escape(wrong)}\b", re.IGNORECASE), right))
-    return pairs
-
-
-WHISPER_SUBSTITUTIONS = _parse_substitutions(os.getenv("WHISPER_SUBSTITUTIONS", ""))
 
 MAX_UPLOAD_MB = float(os.getenv("MAX_UPLOAD_MB", "50"))
 RATE_LIMIT_API_PER_MIN = int(os.getenv("RATE_LIMIT_API_PER_MIN", "300"))
@@ -273,9 +253,8 @@ def probe_duration(audio: Path) -> float | None:
     `MediaRecorder` webm files — everything the PWA records — carry no duration
     in their container header, so the fast metadata read returns nothing for
     them and we fall back to decoding the file and reading the final timestamp.
-    That costs ~1.5s for a four-minute recording, which is why this only ever
-    runs in the background backfill; anything Vesper transcribes itself gets
-    its duration straight from Whisper instead.
+    That costs ~1.5s for a four-minute recording, so it runs in the background
+    backfill and once per finished transcript in `refresh_pending`.
     """
     try:
         out = subprocess.run(
@@ -402,65 +381,6 @@ def backfill_durations() -> None:
     print("[vesper] Duration probing complete.", flush=True)
 
 
-# --- Whisper model -----------------------------------------------------------
-
-whisper_model = None
-
-
-def load_model() -> None:
-    """Load the faster-whisper model. Tolerant of GPU-less environments so the
-    server (and its static file serving + read endpoints) still come up; the
-    transcribe endpoint reports 503 until a model is available."""
-    global whisper_model
-    try:
-        from faster_whisper import WhisperModel
-
-        print(
-            f"[vesper] Loading Whisper model '{WHISPER_MODEL}' "
-            f"on {WHISPER_DEVICE} ({WHISPER_COMPUTE_TYPE})...",
-            flush=True,
-        )
-        whisper_model = WhisperModel(
-            WHISPER_MODEL,
-            device=WHISPER_DEVICE,
-            compute_type=WHISPER_COMPUTE_TYPE,
-        )
-        print("[vesper] Whisper model loaded.", flush=True)
-    except Exception as exc:  # noqa: BLE001 — surface any load failure, keep serving
-        whisper_model = None
-        print(
-            f"[vesper] WARNING: Whisper model failed to load: {exc}\n"
-            f"[vesper] The app will serve, but /api/transcribe will return 503 "
-            f"until a model loads. For CPU fallback set WHISPER_DEVICE=cpu and "
-            f"WHISPER_COMPUTE_TYPE=int8 in backend/.env.",
-            flush=True,
-        )
-
-
-def transcribe_file(path: str) -> tuple[str, float]:
-    """Run faster-whisper synchronously (blocking, GPU-bound). Call via
-    run_in_threadpool. Returns (text, duration_seconds)."""
-    segments, info = whisper_model.transcribe(
-        path,
-        vad_filter=True,
-        language="en",
-        beam_size=5,
-        initial_prompt=WHISPER_INITIAL_PROMPT,
-        # Stop repetition loops ("I'm sorry, I'm sorry, ..."). Feeding each
-        # window's text into the next let one stuck window poison the rest,
-        # and the silence threshold drops text invented over long pauses.
-        # See .claude/docs/transcription.md "Repetition loops".
-        condition_on_previous_text=False,
-        word_timestamps=True,
-        hallucination_silence_threshold=2,
-    )
-    text = " ".join(segment.text.strip() for segment in segments).strip()
-    for pattern, replacement in WHISPER_SUBSTITUTIONS:
-        text = pattern.sub(replacement, text)
-    duration = float(getattr(info, "duration", 0.0) or 0.0)
-    return text, duration
-
-
 # --- Writing into the vault --------------------------------------------------
 
 # Slot allocation reads the folder then writes into it; two uploads landing
@@ -483,42 +403,42 @@ def next_stem(day_dir: Path, when: datetime) -> str:
     return f"{highest + 1:02d} - {clock}"
 
 
-async def _run_transcription(entry_key: str) -> None:
-    """Background task: transcribe the audio of an already-indexed entry and
-    write the transcript beside it in the vault."""
+def refresh_pending() -> int:
+    """Pick up transcripts the worker has written since the index last looked.
+
+    The worker is another process, so the index can't learn of its writes
+    directly; instead each still-pending entry is checked against the vault
+    (one stat each, and only pending ones). Returns how many are still waiting.
+    """
     with index.lock:
-        entry = index.entries.get(entry_key)
-        if entry is None:
-            return  # deleted before we got to it
-        date, stem, audio_name = entry.date, entry.stem, entry.audio_name
-
-    if not audio_name:
-        return
-    audio = VAULT_RECORDINGS_DIR / date / audio_name
-
-    try:
-        text, duration = await run_in_threadpool(transcribe_file, str(audio))
-    except Exception as exc:  # noqa: BLE001
-        print(f"[vesper] Transcription failed for {date}/{stem}: {exc}", flush=True)
-        # Leave the entry pending rather than writing an empty .txt: the audio
-        # is safe in the vault, and a restart re-queues it.
-        return
-
-    try:
-        (VAULT_RECORDINGS_DIR / date / f"{stem}.txt").write_text(text, encoding="utf-8")
-    except OSError as exc:
-        print(f"[vesper] WARNING: could not write {date}/{stem}.txt: {exc}", flush=True)
-        return
-
-    remember_duration(f"{date}/{stem}", audio, duration)
-    save_duration_cache()
-    with index.lock:
-        live = index.entries.get(entry_key)
-        if live is not None:
-            live.transcript = text
-            live.word_count = len(text.split())
-            live.duration_seconds = duration
-    print(f"[vesper] Transcribed {date}/{stem}: {len(text.split())} words", flush=True)
+        waiting = [e for e in index.entries.values()
+                   if e.audio_name and e.transcript is None]
+    still = 0
+    finished = False
+    for entry in waiting:
+        day_dir = VAULT_RECORDINGS_DIR / entry.date
+        txt = day_dir / f"{entry.stem}.txt"
+        if not txt.is_file():
+            still += 1
+            continue
+        try:
+            text = txt.read_text(encoding="utf-8", errors="replace").strip()
+        except OSError:
+            still += 1
+            continue
+        audio = day_dir / entry.audio_name
+        duration = probe_duration(audio)
+        remember_duration(f"{entry.date}/{entry.stem}", audio, duration)
+        with index.lock:
+            live = index.entries.get(entry.id)
+            if live is not None and live.transcript is None:
+                live.transcript = text
+                live.word_count = len(text.split())
+                live.duration_seconds = duration
+        finished = True
+    if finished:
+        save_duration_cache()
+    return still
 
 
 # --- App / lifecycle ---------------------------------------------------------
@@ -530,17 +450,6 @@ app = FastAPI(title="Vesper")
 async def on_startup() -> None:
     load_duration_cache()
     rebuild_index()
-    load_model()
-
-    # Audio with no transcript beside it means a run that never finished —
-    # the vault itself is the queue, so nothing extra needs tracking.
-    pending = [e.id for e in index.sorted() if e.audio_name and e.transcript is None]
-    if pending:
-        print(f"[vesper] Re-queuing {len(pending)} unfinished transcription(s)...",
-              flush=True)
-        for key in pending:
-            asyncio.create_task(_run_transcription(key))
-
     asyncio.create_task(run_in_threadpool(backfill_durations))
 
 
@@ -571,10 +480,16 @@ def health():
         count = len(index.entries)
     return {
         "status": "ok",
-        "model_loaded": whisper_model is not None,
         "entries": count,
         "vault": VAULT_RECORDINGS_DIR.is_dir(),
     }
+
+
+@app.get("/api/queue")
+def queue():
+    """How many recordings are waiting for a transcript. The host-side waker
+    polls this to decide whether the GPU worker needs to be running."""
+    return {"pending": refresh_pending()}
 
 
 @app.post("/api/reindex")
@@ -590,14 +505,8 @@ def reindex():
 )
 async def transcribe(
     audio: UploadFile,
-    background_tasks: BackgroundTasks,
     local_date: str | None = Form(default=None),
 ):
-    if whisper_model is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Transcription model not loaded. Check server logs / GPU.",
-        )
     if not VAULT_RECORDINGS_DIR.is_dir():
         raise HTTPException(
             status_code=503,
@@ -647,12 +556,12 @@ async def transcribe(
     with index.lock:
         index.entries[entry.id] = entry
 
-    background_tasks.add_task(_run_transcription, entry.id)
     return entry.public()
 
 
 @app.get("/api/transcripts")
 def list_transcripts(date: str | None = None):
+    refresh_pending()
     entries = index.sorted()
     if date:
         entries = [e for e in entries if e.date == date]

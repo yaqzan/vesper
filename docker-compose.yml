@@ -23,7 +23,9 @@ services:
       - "127.0.0.1:8000:8000"
     restart: unless-stopped
 
+  # Web/API half: always on, no GPU, no model. Receives uploads and serves reads.
   vesper:
+    image: vesper:local
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -41,13 +43,6 @@ services:
       - "${VESPER_VAULT_DIR:?set VESPER_VAULT_DIR in .env}:/vault/recordings"
     env_file:
       - backend/.env
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
 
     # --- Liveness: Docker + the Windows watchdog both probe /health ---
     healthcheck:
@@ -59,7 +54,7 @@ services:
       interval: 30s
       timeout: 8s
       retries: 3
-      start_period: 600s   # first boot downloads model weights (~800MB)
+      start_period: 60s
 
     # --- Hardening ---
     security_opt:
@@ -80,6 +75,39 @@ services:
         max-file: "3"
 
     restart: unless-stopped
+
+  # GPU half: started on demand by ops/windows/waker.ps1 when recordings are
+  # waiting, exits by itself once the queue has been empty ~60s. The `worker`
+  # profile keeps a plain `docker compose up -d` from starting it, and
+  # restart "no" keeps Docker from reviving it after it exits.
+  transcriber:
+    image: vesper:local
+    profiles: ["worker"]
+    container_name: vesper-transcriber
+    command: ["python", "-m", "backend.worker"]
+    volumes:
+      - ./backend:/app/backend
+      - whisper-cache:/root/.cache/huggingface
+      - "${VESPER_VAULT_DIR:?set VESPER_VAULT_DIR in .env}:/vault/recordings"
+    env_file:
+      - backend/.env
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 8g
+    pids_limit: 512
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: "no"
 
 volumes:
   ts-vesper-state:

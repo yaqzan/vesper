@@ -1,6 +1,18 @@
 # Transcription backend
 
-Local `faster-whisper`, run in-process on the GTX 1080 Ti, called from a `BackgroundTask` after the upload response returns (`_run_transcription` and `transcribe_file` in `backend/main.py`).
+Local `faster-whisper` on the GTX 1080 Ti, run by `backend/worker.py` in its own **on-demand** container. The API (`backend/main.py`) holds no model.
+
+## On-demand worker
+
+- `vesper` (always on, no GPU) saves the upload into the vault and returns. Pending = audio with no `.txt`; the vault is the queue.
+- `ops/windows/waker.ps1` (scheduled task "Vesper Waker", started at logon, loops every 5s) polls `GET /api/queue`. If pending > 0 and `vesper-transcriber` isn't running it runs `docker compose --profile worker up -d transcriber`. The host does this on purpose: starting containers from the web container would need `docker.sock` mounted into it.
+- `transcriber` loads the model (~8s), transcribes everything pending oldest-first, rescans, and exits after 60s of empty queue (`WORKER_IDLE_EXIT_SECONDS`). `restart: "no"` + the `worker` compose profile keep Docker and `compose up -d` from reviving it; the watchdog deliberately ignores it.
+- Race (clip lands as the worker exits): the audio is already on disk, so the waker restarts the worker on its next poll.
+- Worker skips files whose mtime is < 10s old (an upload is copied into the vault in place; a half-written file is visible) and writes `.txt` via tmp + rename.
+- API picks results up in `refresh_pending()` (stat per pending entry only), called by `/api/transcripts` and `/api/queue`. Durations come from `probe_duration` there, not from Whisper.
+- **Failure back-off:** a recording that fails leaves audio with no `.txt` and the worker exits 3; the waker then won't restart it for 10 min. Without that, one corrupt file would wake the GPU every few seconds. Such a file stays pending (and wakes the GPU every 10 min) until you delete it or fix it -- as of 2026-10-05 `2026-09-20/03 - 7.08pm.webm` is one (invalid webm data).
+- Cost: each burst pays container start + model load (~15-30s). The PWA already shows "Transcribing..." for `transcript: null`.
+- Install/refresh the task: elevated `ops\windows\install-tasks.ps1`.
 
 ## History: ElevenLabs, then back to local
 
@@ -47,9 +59,9 @@ The 14 were repaired by splicing only the looped span from the re-run into the e
 
 ## Re-transcribing a failed entry
 
-A failed transcription leaves audio in the vault with **no `.txt` beside it** -- identical to a pending entry, so a restart re-queues it automatically (`on_startup` in `main.py`). Nothing to run by hand.
+A failed transcription leaves audio in the vault with **no `.txt` beside it** -- identical to a pending entry, so the next worker run picks it up (after the waker's 10 min back-off if it failed). Nothing to run by hand.
 
-To force a redo of an entry that *did* produce a transcript: delete its `.txt` from the vault day folder and restart. See [vault.md](vault.md).
+To force a redo of an entry that *did* produce a transcript: delete its `.txt` from the vault day folder; the waker starts the worker, no restart needed. See [vault.md](vault.md).
 
 The two entries stranded at `word_count: 0` by the ElevenLabs quota wall (Aug 17/18) were recovered this way on 2026-08-22 -- 1280 and 1051 words respectively.
 
