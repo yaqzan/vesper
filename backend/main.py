@@ -96,6 +96,12 @@ class TranscriptEdit(BaseModel):
     transcript: str = Field(max_length=200_000)
 
 
+class QuestionAnswer(BaseModel):
+    """A typed answer, or "the parser's guess is right" (accept_guess)."""
+    text: str | None = Field(default=None, max_length=5_000)
+    accept_guess: bool = False
+
+
 # --- Rate limiting -----------------------------------------------------------
 
 class RateLimiter:
@@ -488,8 +494,9 @@ def health():
 @app.get("/api/queue")
 def queue():
     """How many recordings are waiting for a transcript. The host-side waker
-    polls this to decide whether the GPU worker needs to be running."""
-    return {"pending": refresh_pending()}
+    polls this to decide whether the GPU worker needs to be running. Spoken
+    answers to memoir questions count too: the same worker transcribes them."""
+    return {"pending": refresh_pending() + pending_voice_answers()}
 
 
 @app.post("/api/reindex")
@@ -636,6 +643,179 @@ def delete_transcript(key: str):
         index.entries.pop(key, None)
     print(f"[vesper] Deleted {date}/{stem} ({len(removed)} file(s))", flush=True)
     return JSONResponse({"deleted": key, "files": removed})
+
+
+# --- Memoir questions --------------------------------------------------------
+#
+# The memoir pipeline (outside this repo) writes `<date>/questions.json` when it
+# isn't sure about something in a day and holds that day back. The app shows the
+# open questions; the answers go into the same file (typed) or into
+# `<date>/answers/<qid>.<audio>` (spoken, transcribed by the worker into
+# `<qid>.txt`). The pipeline's next run picks the answered days up. Vesper never
+# changes a question, only its `answer`. See .claude/docs/questions.md.
+
+QUESTIONS_NAME = "questions.json"
+ANSWERS_DIR = "answers"
+QID_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+_questions_lock = threading.Lock()
+
+
+def _questions_file(date: str) -> Path:
+    if not DATE_RE.match(date):
+        raise HTTPException(status_code=400, detail="Bad date")
+    return VAULT_RECORDINGS_DIR / date / QUESTIONS_NAME
+
+
+def _read_questions(path: Path) -> dict | None:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def _write_questions(path: Path, data: dict) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(path)
+
+
+def _voice_text(day_dir: Path, answer: dict) -> str | None:
+    """The transcript of a spoken answer, or None while it's still transcribing."""
+    audio = answer.get("audio")
+    if not audio:
+        return None
+    txt = (day_dir / audio).with_suffix(".txt")
+    try:
+        return txt.read_text(encoding="utf-8", errors="replace").strip()
+    except OSError:
+        return None
+
+
+def _public_day(date: str, data: dict) -> dict:
+    day_dir = VAULT_RECORDINGS_DIR / date
+    out = []
+    for q in data.get("questions", []):
+        answer = q.get("answer")
+        shown = None
+        if answer:
+            text = answer.get("text")
+            if answer.get("via") == "voice" and not text:
+                text = _voice_text(day_dir, answer)
+            shown = {"via": answer.get("via"), "text": text,
+                     "pending": answer.get("via") == "voice" and text is None}
+        out.append({
+            "id": q.get("id"), "topic": q.get("topic"), "quote": q.get("quote"),
+            "question": q.get("question"), "guess": q.get("guess"),
+            "blocking": bool(q.get("blocking", True)), "answer": shown,
+        })
+    return {"date": date, "status": data.get("status", "open"), "questions": out}
+
+
+def pending_voice_answers() -> int:
+    """Spoken answers with no transcript yet (wakes the worker via /api/queue)."""
+    if not VAULT_RECORDINGS_DIR.is_dir():
+        return 0
+    count = 0
+    for folder in VAULT_RECORDINGS_DIR.glob(f"*/{ANSWERS_DIR}"):
+        try:
+            names = {p.name for p in folder.iterdir()}
+        except OSError:
+            continue
+        for name in names:
+            stem, dot, ext = name.rpartition(".")
+            if dot and f".{ext.lower()}" in AUDIO_SUFFIXES and f"{stem}.txt" not in names:
+                count += 1
+    return count
+
+
+@app.get("/api/questions")
+def list_questions():
+    """Every day the memoir pipeline is still holding back, newest first."""
+    days = []
+    if VAULT_RECORDINGS_DIR.is_dir():
+        for path in VAULT_RECORDINGS_DIR.glob(f"*/{QUESTIONS_NAME}"):
+            date = path.parent.name
+            data = _read_questions(path) if DATE_RE.match(date) else None
+            if data and data.get("status", "open") != "resolved":
+                days.append(_public_day(date, data))
+    return sorted(days, key=lambda d: d["date"], reverse=True)
+
+
+def _update_answer(date: str, qid: str, answer: dict | None) -> dict:
+    if not QID_RE.match(qid):
+        raise HTTPException(status_code=400, detail="Bad question id")
+    path = _questions_file(date)
+    with _questions_lock:
+        data = _read_questions(path)
+        if data is None:
+            raise HTTPException(status_code=404, detail="No questions for that day")
+        if data.get("status") == "resolved":
+            raise HTTPException(status_code=409, detail="That day is already written up")
+        question = next((q for q in data.get("questions", []) if q.get("id") == qid), None)
+        if question is None:
+            raise HTTPException(status_code=404, detail="No such question")
+        question["answer"] = answer
+        try:
+            _write_questions(path, data)
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=f"Could not save to vault: {exc}")
+    return _public_day(date, data)
+
+
+@app.post("/api/questions/{date}/{qid}/answer")
+def answer_question(date: str, qid: str, payload: QuestionAnswer):
+    now = datetime.now(timezone.utc).isoformat()
+    if payload.accept_guess:
+        return _update_answer(date, qid, {"via": "guess", "text": None, "at": now})
+    text = (payload.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Empty answer")
+    return _update_answer(date, qid, {"via": "text", "text": text, "at": now})
+
+
+@app.delete("/api/questions/{date}/{qid}/answer")
+def clear_answer(date: str, qid: str):
+    return _update_answer(date, qid, None)
+
+
+@app.post("/api/questions/{date}/{qid}/voice",
+          dependencies=[Depends(transcribe_rate_limit)])
+async def answer_by_voice(date: str, qid: str, audio: UploadFile):
+    """A spoken answer: saved under `<date>/answers/`, transcribed by the worker."""
+    if not QID_RE.match(qid):
+        raise HTTPException(status_code=400, detail="Bad question id")
+    if not _questions_file(date).is_file():
+        raise HTTPException(status_code=404, detail="No questions for that day")
+    suffix = Path(audio.filename or "audio").suffix.lower() or ".webm"
+    if suffix not in AUDIO_SUFFIXES:
+        suffix = ".webm"
+    answers = VAULT_RECORDINGS_DIR / date / ANSWERS_DIR
+    fd, tmp_name = tempfile.mkstemp(suffix=suffix)
+    os.close(fd)
+    tmp_path = Path(tmp_name)
+    try:
+        total = 0
+        async with aiofiles.open(tmp_path, "wb") as out:
+            while chunk := await audio.read(1024 * 1024):
+                total += len(chunk)
+                if total > MAX_UPLOAD_BYTES:
+                    raise HTTPException(status_code=413, detail="Answer too long")
+                await out.write(chunk)
+        answers.mkdir(parents=True, exist_ok=True)
+        # A re-recorded answer replaces the old audio and its transcript.
+        for old in answers.glob(f"{qid}.*"):
+            old.unlink(missing_ok=True)
+        shutil.move(str(tmp_path), answers / f"{qid}{suffix}")
+    except HTTPException:
+        tmp_path.unlink(missing_ok=True)
+        raise
+    except OSError as exc:
+        tmp_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=f"Could not save answer: {exc}")
+    now = datetime.now(timezone.utc).isoformat()
+    return await run_in_threadpool(
+        _update_answer, date, qid,
+        {"via": "voice", "text": None, "audio": f"{ANSWERS_DIR}/{qid}{suffix}", "at": now})
 
 
 # --- Static files (MUST be mounted after all API routes) ---------------------

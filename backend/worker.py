@@ -61,7 +61,9 @@ WHISPER_SUBSTITUTIONS = _parse_substitutions(os.getenv("WHISPER_SUBSTITUTIONS", 
 
 
 def find_pending() -> list[Path]:
-    """Audio files with no transcript beside them, oldest first."""
+    """Audio files with no transcript beside them, oldest first. Covers each
+    day folder and its `answers/` subfolder (spoken answers to the memoir
+    parser's questions -- see .claude/docs/questions.md)."""
     found: list[tuple[float, Path]] = []
     if not VAULT_RECORDINGS_DIR.is_dir():
         return []
@@ -69,21 +71,24 @@ def find_pending() -> list[Path]:
     for day_dir in VAULT_RECORDINGS_DIR.iterdir():
         if not day_dir.is_dir() or not DATE_RE.match(day_dir.name):
             continue
-        try:
-            contents = list(day_dir.iterdir())
-        except OSError:
-            continue
-        txts = {p.stem for p in contents if p.suffix.lower() == ".txt"}
-        for path in contents:
-            if path.suffix.lower() not in AUDIO_SUFFIXES or path.stem in txts:
+        for folder in (day_dir, day_dir / "answers"):
+            if not folder.is_dir():
                 continue
             try:
-                mtime = path.stat().st_mtime
+                contents = list(folder.iterdir())
             except OSError:
                 continue
-            if now - mtime < SETTLE_SECONDS:
-                continue
-            found.append((mtime, path))
+            txts = {p.stem for p in contents if p.suffix.lower() == ".txt"}
+            for path in contents:
+                if path.suffix.lower() not in AUDIO_SUFFIXES or path.stem in txts:
+                    continue
+                try:
+                    mtime = path.stat().st_mtime
+                except OSError:
+                    continue
+                if now - mtime < SETTLE_SECONDS:
+                    continue
+                found.append((mtime, path))
     return [p for _, p in sorted(found)]
 
 

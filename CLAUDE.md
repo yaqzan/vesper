@@ -58,6 +58,7 @@ docker compose restart vesper       # main.py-only changes
 ## Reference docs
 
 - [memoir-format.md](.claude/docs/memoir-format.md) -- what a processed day looks like (frontmatter, sections, sidecar) and the code steps around the parser model
+- [questions.md](.claude/docs/questions.md) -- the memoir parser's questions: `questions.json`, the Questions tab, voice answers, held days
 - [vault.md](.claude/docs/vault.md) -- **start here for anything storage-related**: the vault as sole source of truth, the in-memory index, filenames, durations, deleting
 - [architecture.md](.claude/docs/architecture.md) -- request flow, API table, backend/frontend file-by-file detail
 - [transcription.md](.claude/docs/transcription.md) -- on-demand worker + waker, faster-whisper/GPU config, model choice, name-substitution list, ElevenLabs history

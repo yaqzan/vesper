@@ -118,3 +118,49 @@ export async function deleteTranscript(id) {
   if (!response.ok) throw await asError(response, 'Could not delete entry')
   return response.json()
 }
+
+// --- Memoir questions -------------------------------------------------------
+// Days the memoir pipeline is holding back until the parser's questions are
+// answered. See .claude/docs/questions.md.
+
+/** @returns {Promise<Array<{date, status, questions: Array}>>} newest day first */
+export async function fetchQuestions() {
+  const response = await fetch('/api/questions')
+  if (!response.ok) throw await asError(response, 'Could not load questions')
+  return response.json()
+}
+
+/** Typed answer ({text}) or "the guess is right" ({acceptGuess: true}). Returns the day. */
+export async function answerQuestion(date, qid, { text, acceptGuess } = {}) {
+  const response = await fetch(
+    `/api/questions/${encodeURIComponent(date)}/${encodeURIComponent(qid)}/answer`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(acceptGuess ? { accept_guess: true } : { text }),
+    },
+  )
+  if (!response.ok) throw await asError(response, 'Could not save answer')
+  return response.json()
+}
+
+export async function clearAnswer(date, qid) {
+  const response = await fetch(
+    `/api/questions/${encodeURIComponent(date)}/${encodeURIComponent(qid)}/answer`,
+    { method: 'DELETE' },
+  )
+  if (!response.ok) throw await asError(response, 'Could not clear answer')
+  return response.json()
+}
+
+/** Spoken answer: uploaded, then transcribed by the same worker as entries. */
+export async function answerByVoice(date, qid, blob, filename) {
+  const form = new FormData()
+  form.append('audio', blob, filename)
+  const response = await fetch(
+    `/api/questions/${encodeURIComponent(date)}/${encodeURIComponent(qid)}/voice`,
+    { method: 'POST', body: form },
+  )
+  if (!response.ok) throw await asError(response, 'Could not upload answer')
+  return response.json()
+}

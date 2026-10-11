@@ -7,7 +7,12 @@
     NN - H.MMpm.txt      the transcript
     NN - H.MMpm.m4a      the audio
     <date>.md            the memoir note (Spore's; Vesper never touches it)
+    questions.json       the memoir parser's open questions for the day (see questions.md)
+    answers/qN.webm|.txt spoken answers and their transcripts
 ```
+
+`questions.json` and `answers/` are never entries: the index only reads the day folder's own
+`.txt`/audio pairs.
 
 Vesper reads and writes those files directly. Nothing it stores is unique to it -- delete everything under `backend/` except the code and the app rebuilds itself from the vault on the next boot.
 

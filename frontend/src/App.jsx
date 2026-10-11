@@ -3,10 +3,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Recorder from './components/Recorder.jsx'
 import CalendarView from './components/CalendarView.jsx'
 import TranscriptList from './components/TranscriptList.jsx'
+import QuestionsView from './components/QuestionsView.jsx'
 import PendingUploads from './components/PendingUploads.jsx'
 import NavProgressRing from './components/NavProgressRing.jsx'
 import SettingsOverlay from './components/SettingsOverlay.jsx'
-import { MicIcon, CalendarIcon, BookIcon, VesperGlyph, SettingsIcon } from './components/icons.jsx'
+import { MicIcon, CalendarIcon, BookIcon, QuestionIcon, VesperGlyph, SettingsIcon } from './components/icons.jsx'
 
 import {
   checkHealth,
@@ -14,6 +15,7 @@ import {
   fetchCalendar,
   deleteTranscript,
   updateTranscript,
+  fetchQuestions,
 } from './lib/api.js'
 import { initDB, getAllPending, deletePending } from './lib/db.js'
 import useUploadQueue from './lib/useUploadQueue.js'
@@ -24,6 +26,7 @@ const TABS = [
   { id: 'record', label: 'Record', Icon: MicIcon },
   { id: 'calendar', label: 'Calendar', Icon: CalendarIcon },
   { id: 'entries', label: 'Entries', Icon: BookIcon },
+  { id: 'questions', label: 'Questions', Icon: QuestionIcon },
 ]
 
 // connState: 'checking' | 'ok' | 'down'
@@ -34,6 +37,9 @@ export default function App() {
   const [transcripts, setTranscripts] = useState([])
   const [calendarData, setCalendarData] = useState([])
   const [pendingUploads, setPendingUploads] = useState([])
+  // Days the memoir pipeline is holding until its questions are answered.
+  const [questionDays, setQuestionDays] = useState([])
+  const [questionsLoaded, setQuestionsLoaded] = useState(false)
 
   const [activeTab, setActiveTab] = useState('record')
   const [filterDate, setFilterDate] = useState(null)
@@ -65,6 +71,21 @@ export default function App() {
     } finally {
       setDataLoaded(true)
     }
+  }, [])
+
+  const loadQuestions = useCallback(async () => {
+    try {
+      setQuestionDays(await fetchQuestions())
+    } catch (err) {
+      console.warn('[vesper] Could not load questions:', err)
+    } finally {
+      setQuestionsLoaded(true)
+    }
+  }, [])
+
+  // An answer call returns the whole day; swap it in place.
+  const replaceQuestionDay = useCallback((day) => {
+    setQuestionDays((days) => days.map((d) => (d.date === day.date ? day : d)))
   }, [])
 
   // --- Upload queue --------------------------------------------------------
@@ -131,6 +152,21 @@ export default function App() {
   useEffect(() => {
     if (connState === 'ok') refreshData()
   }, [connState, refreshData])
+
+  useEffect(() => {
+    if (connState === 'ok') loadQuestions()
+  }, [connState, loadQuestions, activeTab])
+
+  // A spoken answer turns into text once the worker gets to it.
+  const voicePending = questionDays.some((d) => d.questions.some((q) => q.answer?.pending))
+  useEffect(() => {
+    if (!voicePending) return undefined
+    const timer = setInterval(loadQuestions, 4000)
+    return () => clearInterval(timer)
+  }, [voicePending, loadQuestions])
+
+  const openQuestions = questionDays.reduce(
+    (n, d) => n + d.questions.filter((q) => !q.answer).length, 0)
 
   // Restart uploads a closed app left unfinished. Once per launch, after both
   // the server and the local DB are confirmed.
@@ -280,6 +316,14 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'questions' && (
+          <QuestionsView
+            days={questionDays}
+            loaded={questionsLoaded}
+            onDayChange={replaceQuestionDay}
+          />
+        )}
+
         {activeTab === 'entries' && (
           <TranscriptList
             transcripts={transcripts}
@@ -295,7 +339,10 @@ export default function App() {
       <nav className={styles.tabbar} aria-label="Primary">
         <span
           className={styles.indicator}
-          style={{ '--idx': TABS.findIndex((t) => t.id === activeTab) }}
+          style={{
+            '--idx': TABS.findIndex((t) => t.id === activeTab),
+            '--tabs': TABS.length,
+          }}
           aria-hidden="true"
         />
         {TABS.map(({ id, label, Icon }) => {
@@ -315,6 +362,11 @@ export default function App() {
                 <Icon size={23} stroke={active ? 2.1 : 1.6} />
                 {id === 'record' && (
                   <NavProgressRing jobs={jobs} recording={recordingAway} />
+                )}
+                {id === 'questions' && openQuestions > 0 && (
+                  <span className={styles.badge} aria-label={`${openQuestions} unanswered`}>
+                    {openQuestions > 99 ? '99+' : openQuestions}
+                  </span>
                 )}
               </span>
               <span className={styles.tabLabel}>{label}</span>

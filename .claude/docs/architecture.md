@@ -23,16 +23,19 @@ Single-file FastAPI app.
 | Method | Path | Notes |
 | --- | --- | --- |
 | `GET` | `/health` | Unauthenticated; reports indexed `entries`, whether the `vault` is mounted |
-| `GET` | `/api/queue` | `{pending}` -- recordings awaiting a transcript; polled by the waker |
+| `GET` | `/api/queue` | `{pending}` -- recordings and spoken answers awaiting a transcript; polled by the waker |
 | `POST` | `/api/transcribe` | Multipart upload; saves to the vault and returns immediately; the worker transcribes later |
 | `GET` | `/api/transcripts[?date=]` | Newest first, served from the index |
 | `GET` | `/api/calendar` | Per-day entry counts |
 | `PATCH` | `/api/transcripts/{id}` | Replace transcript text -- writes the vault `.txt`, which *is* the entry |
 | `DELETE` | `/api/transcripts/{id}` | **Deletes the vault files.** No second copy exists; client confirms first |
 | `POST` | `/api/reindex` | Re-read the vault. Index only refreshes at startup, so this picks up edits made directly in Obsidian |
+| `GET` | `/api/questions` | Days the memoir pipeline is holding, with their questions ([questions.md](questions.md)) |
+| `POST`/`DELETE` | `/api/questions/{date}/{qid}/answer` | Typed answer or `accept_guess`; DELETE clears it |
+| `POST` | `/api/questions/{date}/{qid}/voice` | Spoken answer, saved to `<date>/answers/`, transcribed by the worker |
 
 ## Frontend (`frontend/src/`)
-- `App.jsx` -- owns all state: connectivity gate, transcripts list, calendar data, pending uploads, the upload queue. Three tabs: Record / Calendar / Entries. **The Recorder stays mounted on every tab** (hidden with `visibility`, not `display:none`, which would drop the carousel/entry-window scroll positions) so leaving the tab mid-recording doesn't kill the mic; the nav ring turns ember to flag it from the other tabs.
+- `App.jsx` -- owns all state: connectivity gate, transcripts list, calendar data, pending uploads, the upload queue. Four tabs: Record / Calendar / Entries / Questions ([questions.md](questions.md)). **The Recorder stays mounted on every tab** (hidden with `visibility`, not `display:none`, which would drop the carousel/entry-window scroll positions) so leaving the tab mid-recording doesn't kill the mic; the nav ring turns ember to flag it from the other tabs.
 - `lib/useUploadQueue.js` -- the background upload queue (see request flow). Sequential on purpose: parallel uploads only split one uplink.
 - `components/NavProgressRing.jsx` -- the Record-tab ring (see request flow). App's `.notices` stack now holds only PendingUploads (failed uploads) and owns the safe-area inset.
 - `components/TranscriptList.jsx` -- entry cards, grouped month -> day. Each card has an **edit** affordance (pencil) where a delete button used to sit; opening it swaps the card body for a textarea and reveals Delete / Cancel / Save. **Delete lives only inside edit mode** -- one step deeper deliberately, since a destructive control on the card face was a stray tap from wiping an entry. Still confirms before firing.

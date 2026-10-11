@@ -62,6 +62,26 @@ export function BookIcon({ size = 24, stroke = 1.75, ...props }) {
   )
 }
 
+export function QuestionIcon({ size = 24, stroke = 1.75, ...props }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={stroke}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v9a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4h0A2.5 2.5 0 0 1 4 14.5z" />
+      <path d="M9.6 8.2a2.4 2.4 0 1 1 3.4 2.2c-.6.3-1 .8-1 1.4v.4" />
+      <line x1="12" y1="14.6" x2="12" y2="14.61" />
+    </svg>
+  )
+}
+
 export function TrashIcon({ size = 18, stroke = 1.6, ...props }) {
   return (
     <svg
