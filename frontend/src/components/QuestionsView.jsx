@@ -2,15 +2,75 @@ import { useRef, useState } from 'react'
 
 import { MicIcon, StopIcon, CheckIcon } from './icons.jsx'
 import { createRecorder, extForMime } from '../lib/recorder.js'
-import { answerQuestion, answerByVoice, clearAnswer } from '../lib/api.js'
-import { formatLongDate } from '../lib/format.js'
+import { answerQuestion, answerByVoice, clearAnswer, fetchQuestionContext } from '../lib/api.js'
+import { formatLongDate, formatEntryHeader, toDateString } from '../lib/format.js'
 
 import styles from './QuestionsView.module.css'
 
 // The memoir pipeline's open questions, one card each, grouped by day. A day's
 // memoir is held back until every question on it is answered. Three ways to
 // answer: confirm the parser's guess, type, or say it (recorded here, then
-// transcribed by the same worker as journal entries).
+// transcribed by the same worker as journal entries). "Not sure" releases the
+// day with the point left open; "Question is wrong" drops the question.
+// "Show context" loads the transcript around the quote and when it was recorded.
+
+function answerLabel(q, answer) {
+  if (answer.pending) return 'Transcribing your answer…'
+  if (answer.via === 'guess') return `Yes: ${q.guess}`
+  if (answer.via === 'unsure') return 'Not sure: the day is written with this left open'
+  if (answer.via === 'wrong') {
+    return answer.text ? `Question is wrong: ${answer.text}` : 'Question is wrong'
+  }
+  return answer.text
+}
+
+function QuoteContext({ date, qid }) {
+  const [state, setState] = useState({ open: false, loading: false, data: null, error: null })
+
+  const toggle = async () => {
+    if (state.open) return setState((s) => ({ ...s, open: false }))
+    setState((s) => ({ ...s, open: true, loading: !s.data, error: null }))
+    if (state.data) return
+    try {
+      const data = await fetchQuestionContext(date, qid)
+      setState({ open: true, loading: false, data, error: null })
+    } catch (err) {
+      setState({ open: true, loading: false, data: null, error: err.message })
+    }
+  }
+
+  const { open, loading, data, error } = state
+  const filedUnder = data?.recorded && toDateString(new Date(data.recorded)) !== date
+  return (
+    <div className={styles.context}>
+      <button type="button" className={styles.link} onClick={toggle}>
+        {open ? 'Hide context' : 'Show context'}
+      </button>
+      {open && loading && <p className={styles.contextMeta}>Loading…</p>}
+      {open && error && <p className={styles.error}>{error}</p>}
+      {open && data && (
+        <>
+          <p className={styles.contextMeta}>
+            {data.recorded
+              ? `Recorded ${formatEntryHeader(data.recorded)}`
+              : 'Recording time unknown'}
+            {filedUnder && ` · filed under ${formatLongDate(date)}`}
+          </p>
+          {!data.found && (
+            <p className={styles.contextMeta}>
+              Couldn’t find the quote in the transcript. This is where the recording starts.
+            </p>
+          )}
+          <p className={styles.passage}>
+            {data.before}
+            {data.match && <mark className={styles.hit}>{data.match}</mark>}
+            {data.after}
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
 
 export default function QuestionsView({ days, loaded, onDayChange }) {
   const open = days.reduce(
@@ -85,17 +145,12 @@ function QuestionCard({ date, q, onDayChange }) {
     <article className={`${styles.card} ${answer ? styles.answered : ''}`}>
       <p className={styles.question}>{q.question}</p>
       {q.quote && <blockquote className={styles.quote}>“{q.quote}”</blockquote>}
+      <QuoteContext date={date} qid={q.id} />
 
       {answer ? (
         <div className={styles.answerRow}>
           <CheckIcon size={16} className={styles.tick} />
-          <span className={styles.answerText}>
-            {answer.pending
-              ? 'Transcribing your answer…'
-              : answer.via === 'guess'
-                ? `Yes: ${q.guess}`
-                : answer.text}
-          </span>
+          <span className={styles.answerText}>{answerLabel(q, answer)}</span>
           <button
             type="button"
             className={styles.link}
@@ -142,6 +197,25 @@ function QuestionCard({ date, q, onDayChange }) {
               {recording ? <StopIcon size={18} /> : <MicIcon size={18} />}
             </button>
           </form>
+          <div className={styles.escapes}>
+            <button
+              type="button"
+              className={styles.link}
+              disabled={busy || recording}
+              onClick={() => run(() => answerQuestion(date, q.id, { unsure: true }))}
+            >
+              Not sure
+            </button>
+            <button
+              type="button"
+              className={styles.link}
+              disabled={busy || recording}
+              onClick={() => run(() => answerQuestion(date, q.id, {
+                wrong: true, text: text.trim() || undefined }))}
+            >
+              Question is wrong
+            </button>
+          </div>
         </>
       )}
       {error && <p className={styles.error}>{error}</p>}

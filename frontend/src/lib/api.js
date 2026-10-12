@@ -130,17 +130,37 @@ export async function fetchQuestions() {
   return response.json()
 }
 
-/** Typed answer ({text}) or "the guess is right" ({acceptGuess: true}). Returns the day. */
-export async function answerQuestion(date, qid, { text, acceptGuess } = {}) {
+/**
+ * Typed answer ({text}), "the guess is right" ({acceptGuess}), "I don't know"
+ * ({unsure}) or "the question is mistaken" ({wrong, text = optional why}).
+ * Returns the day.
+ */
+export async function answerQuestion(date, qid, { text, acceptGuess, unsure, wrong } = {}) {
+  const body = acceptGuess
+    ? { accept_guess: true }
+    : unsure
+      ? { unsure: true }
+      : wrong
+        ? { wrong: true, text }
+        : { text }
   const response = await fetch(
     `/api/questions/${encodeURIComponent(date)}/${encodeURIComponent(qid)}/answer`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(acceptGuess ? { accept_guess: true } : { text }),
+      body: JSON.stringify(body),
     },
   )
   if (!response.ok) throw await asError(response, 'Could not save answer')
+  return response.json()
+}
+
+/** The transcript passage around a question's quote + when it was recorded. */
+export async function fetchQuestionContext(date, qid) {
+  const response = await fetch(
+    `/api/questions/${encodeURIComponent(date)}/${encodeURIComponent(qid)}/context`,
+  )
+  if (!response.ok) throw await asError(response, 'Could not load context')
   return response.json()
 }
 

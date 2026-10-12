@@ -161,3 +161,37 @@
   font-size: 0.85rem;
   color: var(--vsp-ember-bright);
 }
+
+.context {
+  margin-top: 8px;
+}
+
+.contextMeta {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--vsp-text-muted);
+}
+
+.passage {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--vsp-elevated);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--vsp-text-muted);
+}
+
+.hit {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: rgba(201, 168, 76, 0.22);
+  color: var(--vsp-text);
+}
+
+.escapes {
+  display: flex;
+  gap: 18px;
+  margin-top: 10px;
+}

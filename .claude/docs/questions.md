@@ -18,8 +18,11 @@ One per held day, in the vault (no database, same as entries). The pipeline crea
                 "blocking": true, "answer": null}]}
 ```
 
-`answer` is one of `{"via": "guess"}` (the guess is right), `{"via": "text", "text": "..."}`, or
-`{"via": "voice", "audio": "answers/q1.webm"}`. A spoken answer is saved to
+`answer` is one of `{"via": "guess"}` (the guess is right), `{"via": "text", "text": "..."}`,
+`{"via": "voice", "audio": "answers/q1.webm"}`, `{"via": "unsure"}` (owner doesn't know) or
+`{"via": "wrong", "text": "optional why"}` (the question is mistaken). `unsure` and `wrong` count as
+answered, so they release the day. The pipeline must write the point hedged for `unsure` and drop the
+question (and ideally learn from the note) for `wrong`. A spoken answer is saved to
 `Recordings/<date>/answers/<qid>.<ext>` and transcribed by the normal worker into `<qid>.txt`
 beside it (`worker.find_pending` scans `answers/`; `/api/queue` counts them so the waker starts
 the GPU). Answer files are not entries: the index and the memoir packer only read the day
@@ -34,6 +37,7 @@ Status: `open` until the pipeline installs the day, then `resolved` (the app sto
 | Parse a day; high-severity questions → write `questions.json`, don't install, one Pharos push | memoir pipeline, `--hold` mode (outside this repo) |
 | Before asking: re-transcribe each question's passage (+-8s, beam 10, likely names as Whisper `hotwords`) and re-parse with any changed wording as evidence; only what's still high is asked | memoir pipeline, `driver/retranscribe.py` (one-off `docker compose run` of the transcriber image) |
 | List open days, record answers | `GET /api/questions`, `POST/DELETE /api/questions/{date}/{qid}/answer`, `POST .../voice`; Questions tab |
+| Show the passage around a question's quote + when that recording was made | `GET /api/questions/{date}/{qid}/context` (reads the day's `.txt`s and audio mtimes; quote matched by word sequence, not verbatim) |
 | Transcribe spoken answers | `worker.py` |
 | All blocking questions answered → re-parse with the answers, install, mark `resolved` | memoir pipeline, next run |
 
@@ -43,6 +47,15 @@ belongs in the pipeline's data (mishearings / people config), not in an answer.
 ## App
 
 Fourth tab, **Questions**, with a badge of unanswered questions. One card per question: the
-question, the transcript quote, a "Yes, <guess>" button when there is a guess, a text field, and a
+question, the transcript quote, **Show context** (transcript around the quote, highlighted, plus
+"Recorded Sun Oct 11 · 8:13 PM · filed under Sat, Oct 10"), a "Yes, <guess>" button when there is a
+guess, a text field, **Not sure** / **Question is wrong** (typed text goes along as the why), and a
 mic button (tap to start, tap to stop and send; uses `lib/recorder.js`). Answered cards show the
 answer with **Change** (clears it). While a spoken answer is transcribing the tab polls every 4s.
+
+## Not built yet
+
+- **"Need more context" loop**: a button sets `context_requested` in `questions.json`; the pipeline
+  re-reads the whole day + neighbours + roster and rewrites the question with a `why`. Pipeline work.
+- **Play the audio at the quote**: no audio route exists and transcripts carry no timestamps;
+  `retranscribe.py` already has the +-8s window to record an `audio_at`.

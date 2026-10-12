@@ -97,9 +97,12 @@ class TranscriptEdit(BaseModel):
 
 
 class QuestionAnswer(BaseModel):
-    """A typed answer, or "the parser's guess is right" (accept_guess)."""
+    """A typed answer, "the parser's guess is right" (accept_guess), "I don't
+    know" (unsure), or "the question is mistaken" (wrong, text = optional why)."""
     text: str | None = Field(default=None, max_length=5_000)
     accept_guess: bool = False
+    unsure: bool = False
+    wrong: bool = False
 
 
 # --- Rate limiting -----------------------------------------------------------
@@ -741,6 +744,101 @@ def list_questions():
     return sorted(days, key=lambda d: d["date"], reverse=True)
 
 
+QUOTE_SPLIT_RE = re.compile(r"\.{2,}|…|—")
+CONTEXT_WINDOW_CHARS = 700
+
+
+def _day_recordings(day_dir: Path) -> list[dict]:
+    """The day's entries in order: transcript text plus when the audio was written."""
+    out = []
+    try:
+        txts = sorted(day_dir.glob("*.txt"))
+    except OSError:
+        return out
+    for txt in txts:
+        try:
+            text = txt.read_text(encoding="utf-8", errors="replace").strip()
+        except OSError:
+            continue
+        stamp = next((txt.with_suffix(s) for s in sorted(AUDIO_SUFFIXES)
+                      if txt.with_suffix(s).is_file()), txt)
+        try:
+            recorded = datetime.fromtimestamp(stamp.stat().st_mtime, timezone.utc).isoformat()
+        except OSError:
+            recorded = None
+        out.append({"name": txt.stem, "text": text, "recorded": recorded})
+    return out
+
+
+def _find_quote(text: str, quote: str) -> tuple[int, int] | None:
+    """Where a question's quote sits in a transcript, or None.
+
+    The quote is the parser's wording, not always verbatim (it can join passages
+    with "..."), so match word sequences ignoring case and punctuation: each
+    fragment whole, then its first and last six words.
+    """
+    fragments = sorted(
+        (re.findall(r"\w+", f) for f in QUOTE_SPLIT_RE.split(quote)),
+        key=len, reverse=True)
+    for words in fragments:
+        if len(words) < 3:
+            continue
+        for part in (words, words[:6], words[-6:]):
+            if len(part) < 3:
+                continue
+            pattern = r"\W+".join(re.escape(w) for w in part)
+            hit = re.search(pattern, text, re.IGNORECASE)
+            if hit:
+                return hit.start(), hit.end()
+    return None
+
+
+def _trim_edge(chunk: str, at_start: bool) -> str:
+    """Cut a window to a word boundary and mark the cut with an ellipsis."""
+    parts = chunk.split(None, 1) if at_start else chunk.rsplit(None, 1)
+    if len(parts) < 2:
+        return chunk
+    return "…" + parts[1] if at_start else parts[0] + "…"
+
+
+@app.get("/api/questions/{date}/{qid}/context")
+def question_context(date: str, qid: str):
+    """The passage around a question's quote, and when that recording was made."""
+    if not QID_RE.match(qid):
+        raise HTTPException(status_code=400, detail="Bad question id")
+    path = _questions_file(date)
+    data = _read_questions(path)
+    if data is None:
+        raise HTTPException(status_code=404, detail="No questions for that day")
+    question = next((q for q in data.get("questions", []) if q.get("id") == qid), None)
+    if question is None:
+        raise HTTPException(status_code=404, detail="No such question")
+
+    recordings = _day_recordings(path.parent)
+    quote = question.get("quote") or ""
+    for rec in recordings:
+        span = _find_quote(rec["text"], quote)
+        if span:
+            text, (start, end) = rec["text"], span
+            lo, hi = max(0, start - CONTEXT_WINDOW_CHARS), min(len(text), end + CONTEXT_WINDOW_CHARS)
+            before = text[lo:start]
+            after = text[end:hi]
+            return {
+                "date": date, "found": True, "name": rec["name"], "recorded": rec["recorded"],
+                "before": _trim_edge(before, True) if lo > 0 else before,
+                "match": text[start:end],
+                "after": _trim_edge(after, False) if hi < len(text) else after,
+                "recordings": len(recordings),
+            }
+    first = recordings[0] if recordings else None
+    return {
+        "date": date, "found": False, "name": first and first["name"],
+        "recorded": first and first["recorded"], "before": "", "match": "",
+        "after": first["text"][:CONTEXT_WINDOW_CHARS * 2] if first else "",
+        "recordings": len(recordings),
+    }
+
+
 def _update_answer(date: str, qid: str, answer: dict | None) -> dict:
     if not QID_RE.match(qid):
         raise HTTPException(status_code=400, detail="Bad question id")
@@ -767,6 +865,11 @@ def answer_question(date: str, qid: str, payload: QuestionAnswer):
     now = datetime.now(timezone.utc).isoformat()
     if payload.accept_guess:
         return _update_answer(date, qid, {"via": "guess", "text": None, "at": now})
+    if payload.unsure:
+        return _update_answer(date, qid, {"via": "unsure", "text": None, "at": now})
+    if payload.wrong:
+        note = (payload.text or "").strip() or None
+        return _update_answer(date, qid, {"via": "wrong", "text": note, "at": now})
     text = (payload.text or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Empty answer")
