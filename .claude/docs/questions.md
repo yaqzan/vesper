@@ -32,6 +32,7 @@ Status: `open` until the pipeline installs the day, then `resolved` (the app sto
 | Step | Where |
 |---|---|
 | Parse a day; high-severity questions → write `questions.json`, don't install, one Pharos push | memoir pipeline, `--hold` mode (outside this repo) |
+| Before asking: re-transcribe each question's passage (+-8s, beam 10, likely names as Whisper `hotwords`) and re-parse with any changed wording as evidence; only what's still high is asked | memoir pipeline, `driver/retranscribe.py` (one-off `docker compose run` of the transcriber image) |
 | List open days, record answers | `GET /api/questions`, `POST/DELETE /api/questions/{date}/{qid}/answer`, `POST .../voice`; Questions tab |
 | Transcribe spoken answers | `worker.py` |
 | All blocking questions answered → re-parse with the answers, install, mark `resolved` | memoir pipeline, next run |
