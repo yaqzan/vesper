@@ -76,3 +76,32 @@ def test_rejects_bad_ids_and_resolved_days(vault):
     assert client.post("/api/questions/not-a-date/q1/answer", json={"text": "x"}).status_code == 400
     assert client.post("/api/questions/2026-10-01/q1/answer", json={"text": "x"}).status_code == 409
     assert client.post("/api/questions/2026-10-09/q1/answer", json={"text": "  "}).status_code == 400
+
+
+def test_unsure_and_wrong_answers_are_stored_and_clearable(vault):
+    _, root, client = vault
+    r = client.post("/api/questions/2026-10-09/q1/answer", json={"unsure": True})
+    assert r.json()["questions"][0]["answer"] == {"via": "unsure", "text": None, "pending": False}
+    r = client.post("/api/questions/2026-10-09/q2/answer", json={"wrong": True, "text": " no such thing "})
+    assert r.json()["questions"][1]["answer"]["via"] == "wrong"
+    assert r.json()["questions"][1]["answer"]["text"] == "no such thing"
+    saved = json.loads((root / "2026-10-09" / "questions.json").read_text(encoding="utf-8"))
+    assert saved["questions"][0]["answer"]["via"] == "unsure"
+    assert client.delete("/api/questions/2026-10-09/q1/answer").json()["questions"][0]["answer"] is None
+
+
+def test_context_finds_the_quote_and_the_recording_time(vault):
+    _, root, client = vault
+    day = root / "2026-10-09"
+    (day / "01 - 8.06pm.txt").write_text(
+        "We talked all morning. Then Sam came by around noon and left. After that nothing.",
+        encoding="utf-8")
+    (day / "01 - 8.06pm.webm").write_bytes(b"x")
+    r = client.get("/api/questions/2026-10-09/q1/context").json()
+    assert r["found"] and r["match"] == "Sam came by"
+    assert "all morning" in r["before"] and "around noon" in r["after"]
+    assert r["recorded"]
+    # A quote the parser reworded can't be matched: fall back to the start of the recording.
+    r = client.get("/api/questions/2026-10-09/q2/context").json()
+    assert not r["found"] and r["after"].startswith("We talked")
+    assert client.get("/api/questions/2026-10-09/zz/context").status_code == 404

@@ -19,14 +19,33 @@ One per held day, in the vault (no database, same as entries). The pipeline crea
 ```
 
 `answer` is one of `{"via": "guess"}` (the guess is right), `{"via": "text", "text": "..."}`,
-`{"via": "voice", "audio": "answers/q1.webm"}`, `{"via": "unsure"}` (owner doesn't know) or
-`{"via": "wrong", "text": "optional why"}` (the question is mistaken). `unsure` and `wrong` count as
-answered, so they release the day. The pipeline must write the point hedged for `unsure` and drop the
-question (and ideally learn from the note) for `wrong`. A spoken answer is saved to
+`{"via": "voice", "audio": "answers/q1.webm"}`, `{"via": "unsure"}` (owner can't tell: **look again**) or `{"via": "wrong", "text": "optional why"}`
+(the question is mistaken). A spoken answer is saved to
 `Recordings/<date>/answers/<qid>.<ext>` and transcribed by the normal worker into `<qid>.txt`
 beside it (`worker.find_pending` scans `answers/`; `/api/queue` counts them so the waker starts
 the GPU). Answer files are not entries: the index and the memoir packer only read the day
 folder's top level.
+
+Optional question fields the pipeline may set and the app shows: `why` (what answering changes /
+what new evidence was found) and `round` (1 = first ask; shown as "Asked again (round N)").
+
+## Never install a day with an unsure point
+
+Owner's rule 2026-10-12: a memoir is never committed with an unresolved point. `unsure` is not a
+way to release a day; it sends the question **back round the loop with new information** until it
+is resolved. The app only records it (the card shows "looked at again", the badge stops counting
+it because nothing is waiting on the owner). On its next run the pipeline, for each `unsure`
+question:
+
+1. Re-transcribes wider than the first pass (more seconds each side, beam 10, hotwords from the
+   roster and neighbouring days) and re-parses the day with the whole recording, neighbouring days
+   and the roster as context.
+2. Resolved with confidence -> drops the question (record how in the file) and carries on.
+3. Still open -> rewrites the question with the new evidence, sets `why`, increments `round`,
+   sets `answer` back to `null`, so it returns to the owner as an ordinary card.
+
+The day installs only when no question is open or `unsure`. A `wrong` answer drops the question
+and is passed to the re-parse as "the premise was mistaken".
 
 Status: `open` until the pipeline installs the day, then `resolved` (the app stops listing it).
 
@@ -49,13 +68,14 @@ belongs in the pipeline's data (mishearings / people config), not in an answer.
 Fourth tab, **Questions**, with a badge of unanswered questions. One card per question: the
 question, the transcript quote, **Show context** (transcript around the quote, highlighted, plus
 "Recorded Sun Oct 11 · 8:13 PM · filed under Sat, Oct 10"), a "Yes, <guess>" button when there is a
-guess, a text field, **Not sure** / **Question is wrong** (typed text goes along as the why), and a
+guess, a text field, **Not sure** (look again) / **Question is wrong** (typed text goes along as the
+why), and a
 mic button (tap to start, tap to stop and send; uses `lib/recorder.js`). Answered cards show the
 answer with **Change** (clears it). While a spoken answer is transcribing the tab polls every 4s.
 
 ## Not built yet
 
-- **"Need more context" loop**: a button sets `context_requested` in `questions.json`; the pipeline
-  re-reads the whole day + neighbours + roster and rewrites the question with a `why`. Pipeline work.
+- **The re-ask loop above** (pipeline side): `unsure` handling, `why`, `round`. Until it exists an
+  `unsure` question just sits there and its day stays held.
 - **Play the audio at the quote**: no audio route exists and transcripts carry no timestamps;
   `retranscribe.py` already has the +-8s window to record an `audio_at`.

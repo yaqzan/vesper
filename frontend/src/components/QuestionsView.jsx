@@ -10,14 +10,15 @@ import styles from './QuestionsView.module.css'
 // The memoir pipeline's open questions, one card each, grouped by day. A day's
 // memoir is held back until every question on it is answered. Three ways to
 // answer: confirm the parser's guess, type, or say it (recorded here, then
-// transcribed by the same worker as journal entries). "Not sure" releases the
-// day with the point left open; "Question is wrong" drops the question.
+// transcribed by the same worker as journal entries). "Not sure" sends the
+// question back to the pipeline to be looked at again with more context (a day
+// is never written up with an unsure point); "Question is wrong" drops it.
 // "Show context" loads the transcript around the quote and when it was recorded.
 
 function answerLabel(q, answer) {
   if (answer.pending) return 'Transcribing your answer…'
   if (answer.via === 'guess') return `Yes: ${q.guess}`
-  if (answer.via === 'unsure') return 'Not sure: the day is written with this left open'
+  if (answer.via === 'unsure') return 'Not sure: it will be looked at again with more context'
   if (answer.via === 'wrong') {
     return answer.text ? `Question is wrong: ${answer.text}` : 'Question is wrong'
   }
@@ -75,6 +76,8 @@ function QuoteContext({ date, qid }) {
 export default function QuestionsView({ days, loaded, onDayChange }) {
   const open = days.reduce(
     (n, d) => n + d.questions.filter((q) => !q.answer).length, 0)
+  const again = days.reduce(
+    (n, d) => n + d.questions.filter((q) => q.answer?.via === 'unsure').length, 0)
 
   return (
     <div className={styles.wrap}>
@@ -84,8 +87,10 @@ export default function QuestionsView({ days, loaded, onDayChange }) {
           {!loaded
             ? 'Loading…'
             : open
-              ? `${open} to answer. A day is written up once all of its questions are answered.`
-              : 'Nothing to answer. New questions show up here after a day is parsed.'}
+              ? `${open} to answer. A day is written up once all of its questions are settled.`
+              : again
+                ? `Nothing to answer. ${again} being looked at again with more context.`
+                : 'Nothing to answer. New questions show up here after a day is parsed.'}
         </p>
       </header>
 
@@ -143,7 +148,9 @@ function QuestionCard({ date, q, onDayChange }) {
   const answer = q.answer
   return (
     <article className={`${styles.card} ${answer ? styles.answered : ''}`}>
+      {q.round > 1 && <p className={styles.round}>Asked again (round {q.round})</p>}
       <p className={styles.question}>{q.question}</p>
+      {q.why && <p className={styles.why}>{q.why}</p>}
       {q.quote && <blockquote className={styles.quote}>“{q.quote}”</blockquote>}
       <QuoteContext date={date} qid={q.id} />
 

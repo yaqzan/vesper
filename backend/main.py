@@ -97,8 +97,9 @@ class TranscriptEdit(BaseModel):
 
 
 class QuestionAnswer(BaseModel):
-    """A typed answer, "the parser's guess is right" (accept_guess), "I don't
-    know" (unsure), or "the question is mistaken" (wrong, text = optional why)."""
+    """A typed answer, "the parser's guess is right" (accept_guess), "look again
+    with more context" (unsure), or "the question is mistaken" (wrong, text =
+    optional why)."""
     text: str | None = Field(default=None, max_length=5_000)
     accept_guess: bool = False
     unsure: bool = False
@@ -709,6 +710,7 @@ def _public_day(date: str, data: dict) -> dict:
         out.append({
             "id": q.get("id"), "topic": q.get("topic"), "quote": q.get("quote"),
             "question": q.get("question"), "guess": q.get("guess"),
+            "why": q.get("why"), "round": q.get("round", 1),
             "blocking": bool(q.get("blocking", True)), "answer": shown,
         })
     return {"date": date, "status": data.get("status", "open"), "questions": out}
