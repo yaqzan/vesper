@@ -37,15 +37,23 @@ is resolved. The app only records it (the card shows "looked at again", the badg
 it because nothing is waiting on the owner). On its next run the pipeline, for each `unsure`
 question:
 
-1. Re-transcribes wider than the first pass (more seconds each side, beam 10, hotwords from the
-   roster and neighbouring days) and re-parses the day with the whole recording, neighbouring days
-   and the roster as context.
-2. Resolved with confidence -> drops the question (record how in the file) and carries on.
-3. Still open -> rewrites the question with the new evidence, sets `why`, increments `round`,
-   sets `answer` back to `null`, so it returns to the owner as an ordinary card.
+1. Re-transcribes wider than the first pass (+-25s, beam 10, hotwords from the guess/roster/
+   mishearings) and re-parses the whole day with a "could not tell, take a fresh look: don't repeat
+   the wording, say what you checked" block, plus the owner's other answers.
+2. Not raised again -> the question is dropped and logged under `rechecked` (outcome "resolved by
+   re-reading"); the owner is not asked.
+3. Raised again -> the question is rewritten with the new wording, `why` (the parser's `affects`),
+   `round`+1, `answer` back to `null`: an ordinary card again, plus one Pharos push.
+4. Questions the re-read newly raises (and that duplicate nothing already open or answered) are
+   added.
 
-The day installs only when no question is open or `unsure`. A `wrong` answer drops the question
-and is passed to the re-parse as "the premise was mistaken".
+The day installs only when no question is open or `unsure` (run_v2 also refuses to install a day
+whose state flips to `unsure` mid-run). Each re-ask needs the owner to press **Not sure** again, so
+the loop can't spin on its own.
+
+**`wrong`** is settled, not a re-ask: the pipeline passes it to the parser as "this question's
+premise is mistaken, nothing to resolve" (plus the typed note) and the day carries on. It does not
+teach the parser anything beyond that day; a recurring misreading belongs in mishearings/roster.
 
 Status: `open` until the pipeline installs the day, then `resolved` (the app stops listing it).
 
@@ -53,7 +61,8 @@ Status: `open` until the pipeline installs the day, then `resolved` (the app sto
 
 | Step | Where |
 |---|---|
-| Parse a day; high-severity questions → write `questions.json`, don't install, one Pharos push | memoir pipeline, `--hold` mode (outside this repo) |
+| Parse a day; high-severity questions → write `questions.json`, don't install, one Pharos push | memoir pipeline, `run_v2.py --hold` (`.horizon/memoir-v2/driver/`, gitignored) |
+| `unsure` answers → wider re-hear, whole-day re-parse, drop or re-ask | same, `run_v2.recheck_day` + `questions.apply_recheck`; tests `driver/test_questions_loop.py` |
 | Before asking: re-transcribe each question's passage (+-8s, beam 10, likely names as Whisper `hotwords`) and re-parse with any changed wording as evidence; only what's still high is asked | memoir pipeline, `driver/retranscribe.py` (one-off `docker compose run` of the transcriber image) |
 | List open days, record answers | `GET /api/questions`, `POST/DELETE /api/questions/{date}/{qid}/answer`, `POST .../voice`; Questions tab |
 | Show the passage around a question's quote + when that recording was made | `GET /api/questions/{date}/{qid}/context` (reads the day's `.txt`s and audio mtimes; quote matched by word sequence, not verbatim) |
@@ -75,7 +84,7 @@ answer with **Change** (clears it). While a spoken answer is transcribing the ta
 
 ## Not built yet
 
-- **The re-ask loop above** (pipeline side): `unsure` handling, `why`, `round`. Until it exists an
-  `unsure` question just sits there and its day stays held.
 - **Play the audio at the quote**: no audio route exists and transcripts carry no timestamps;
-  `retranscribe.py` already has the +-8s window to record an `audio_at`.
+  `retranscribe.py` already has the window to record an `audio_at`.
+- The app doesn't show `rechecked` (questions the re-read settled without asking). It is in
+  `questions.json` if the owner wants to audit what was dropped.
