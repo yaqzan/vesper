@@ -19,8 +19,8 @@ One per held day, in the vault (no database, same as entries). The pipeline crea
 ```
 
 `answer` is one of `{"via": "guess"}` (the guess is right), `{"via": "text", "text": "..."}`,
-`{"via": "voice", "audio": "answers/q1.webm"}`, `{"via": "unsure"}` (owner can't tell: **look again**) or `{"via": "wrong", "text": "optional why"}`
-(the question is mistaken). A spoken answer is saved to
+`{"via": "voice", "audio": "answers/q1.webm"}`, `{"via": "unsure"}` (owner can't tell: **look again**) or `{"via": "wrong", "text": "optional note"}`
+(the owner says the question is mistaken; neither is an answer, both mean "look again"). A spoken answer is saved to
 `Recordings/<date>/answers/<qid>.<ext>` and transcribed by the normal worker into `<qid>.txt`
 beside it (`worker.find_pending` scans `answers/`; `/api/queue` counts them so the waker starts
 the GPU). Answer files are not entries: the index and the memoir packer only read the day
@@ -51,9 +51,11 @@ The day installs only when no question is open or `unsure` (run_v2 also refuses 
 whose state flips to `unsure` mid-run). Each re-ask needs the owner to press **Not sure** again, so
 the loop can't spin on its own.
 
-**`wrong`** is settled, not a re-ask: the pipeline passes it to the parser as "this question's
-premise is mistaken, nothing to resolve" (plus the typed note) and the day carries on. It does not
-teach the parser anything beyond that day; a recurring misreading belongs in mishearings/roster.
+**`wrong` takes the same road** and is never auto-settled: the owner's note goes to the parser as
+strong evidence ("they were there, but check it against the transcripts"), the day is re-read, and
+only then does the question either drop (the parser no longer raises it; the note is kept under
+`rechecked` and handed to the install parse as the owner's word) or come back rewritten with a
+`why`. A recurring misreading still belongs in mishearings/roster, not in a note.
 
 Status: `open` until the pipeline installs the day, then `resolved` (the app stops listing it).
 
@@ -77,8 +79,8 @@ belongs in the pipeline's data (mishearings / people config), not in an answer.
 Fourth tab, **Questions**, with a badge of unanswered questions. One card per question: the
 question, the transcript quote, **Show context** (transcript around the quote, highlighted, plus
 "Recorded Sun Oct 11 · 8:13 PM · filed under Sat, Oct 10"), a "Yes, <guess>" button when there is a
-guess, a text field, **Not sure** (look again) / **Question is wrong** (typed text goes along as the
-why), and a
+guess, a text field, **Not sure** / **Question is wrong** (both: look again; typed text goes along as the
+note), and a
 mic button (tap to start, tap to stop and send; uses `lib/recorder.js`). Answered cards show the
 answer with **Change** (clears it). While a spoken answer is transcribing the tab polls every 4s.
 

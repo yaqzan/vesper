@@ -99,7 +99,7 @@ class TranscriptEdit(BaseModel):
 class QuestionAnswer(BaseModel):
     """A typed answer, "the parser's guess is right" (accept_guess), "look again
     with more context" (unsure), or "the question is mistaken" (wrong, text =
-    optional why)."""
+    optional note the re-read weighs as evidence)."""
     text: str | None = Field(default=None, max_length=5_000)
     accept_guess: bool = False
     unsure: bool = False

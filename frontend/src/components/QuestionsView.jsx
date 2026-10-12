@@ -12,7 +12,8 @@ import styles from './QuestionsView.module.css'
 // answer: confirm the parser's guess, type, or say it (recorded here, then
 // transcribed by the same worker as journal entries). "Not sure" sends the
 // question back to the pipeline to be looked at again with more context (a day
-// is never written up with an unsure point); "Question is wrong" drops it.
+// is never written up with an unsure point); "Question is wrong" does the same
+// with the typed note as evidence. Neither settles on its own.
 // "Show context" loads the transcript around the quote and when it was recorded.
 
 function answerLabel(q, answer) {
@@ -20,7 +21,9 @@ function answerLabel(q, answer) {
   if (answer.via === 'guess') return `Yes: ${q.guess}`
   if (answer.via === 'unsure') return 'Not sure: it will be looked at again with more context'
   if (answer.via === 'wrong') {
-    return answer.text ? `Question is wrong: ${answer.text}` : 'Question is wrong'
+    return answer.text
+      ? `Marked wrong, looking again with your note: ${answer.text}`
+      : 'Marked wrong, looking again with more context'
   }
   return answer.text
 }
@@ -77,7 +80,8 @@ export default function QuestionsView({ days, loaded, onDayChange }) {
   const open = days.reduce(
     (n, d) => n + d.questions.filter((q) => !q.answer).length, 0)
   const again = days.reduce(
-    (n, d) => n + d.questions.filter((q) => q.answer?.via === 'unsure').length, 0)
+    (n, d) => n + d.questions.filter(
+      (q) => q.answer?.via === 'unsure' || q.answer?.via === 'wrong').length, 0)
 
   return (
     <div className={styles.wrap}>
