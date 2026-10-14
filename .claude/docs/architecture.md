@@ -33,6 +33,8 @@ Single-file FastAPI app.
 | `GET` | `/api/questions` | Days the memoir pipeline is holding, with their questions ([questions.md](questions.md)) |
 | `POST`/`DELETE` | `/api/questions/{date}/{qid}/answer` | Typed answer or `accept_guess`; DELETE clears it |
 | `POST` | `/api/questions/{date}/{qid}/voice` | Spoken answer, saved to `<date>/answers/`, transcribed by the worker |
+| `GET` | `/api/additions` | Days with proposed Reading List / Food additions ([lists.md](lists.md)) |
+| `POST`/`DELETE` | `/api/additions/{date}/{id}` | Record add / skip / link (optional name, type); DELETE clears it |
 
 ## Frontend (`frontend/src/`)
 - `App.jsx` -- owns all state: connectivity gate, transcripts list, calendar data, pending uploads, the upload queue. Four tabs: Record / Calendar / Entries / Questions ([questions.md](questions.md)). **The Recorder stays mounted on every tab** (hidden with `visibility`, not `display:none`, which would drop the carousel/entry-window scroll positions) so leaving the tab mid-recording doesn't kill the mic; the nav ring turns ember to flag it from the other tabs.

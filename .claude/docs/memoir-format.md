@@ -64,7 +64,8 @@ Where uncertainty goes instead of into the journal: `questions` (severity high/l
 `media` / `restaurants` / `people` proposals, `plays`, `meals` (tied to Spice recipes),
 `leo_visits`, `dropped`, `unlinked`. **High-severity questions hold the day** and go to the app
 ([questions.md](questions.md)); answers come back as ground truth on the next run. `plays` become
-play-log notes (create-only); nothing else reaches the vault without the owner.
+play-log notes (create-only); `media` / `restaurants` go to the app's Lists tab ([lists.md](lists.md))
+for approval; nothing else reaches the vault without the owner.
 
 ## Deterministic steps around the models
 

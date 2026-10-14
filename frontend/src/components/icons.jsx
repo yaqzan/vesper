@@ -310,3 +310,26 @@ export function VesperGlyph({ size = 64, ...props }) {
     </svg>
   )
 }
+
+export function ListIcon({ size = 24, stroke = 1.75, ...props }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={stroke}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <line x1="9" y1="6" x2="20" y2="6" />
+      <line x1="9" y1="12" x2="20" y2="12" />
+      <line x1="9" y1="18" x2="20" y2="18" />
+      <line x1="4.5" y1="6" x2="4.51" y2="6" />
+      <line x1="4.5" y1="12" x2="4.51" y2="12" />
+      <line x1="4.5" y1="18" x2="4.51" y2="18" />
+    </svg>
+  )
+}

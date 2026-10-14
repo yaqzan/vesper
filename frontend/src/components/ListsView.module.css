@@ -1,0 +1,26 @@
+.kind {
+  margin: 0 0 4px;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vsp-text-muted);
+}
+
+.select {
+  flex: 0 0 auto;
+  max-width: 40%;
+  padding: 10px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--vsp-border-strong);
+  background: var(--vsp-elevated);
+  color: var(--vsp-text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+}

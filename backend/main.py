@@ -32,6 +32,7 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -104,6 +105,14 @@ class QuestionAnswer(BaseModel):
     accept_guess: bool = False
     unsure: bool = False
     wrong: bool = False
+
+
+class AdditionDecision(BaseModel):
+    """What to do with a proposed Reading List title / Food place: add it (optionally
+    renamed or retyped), skip it, or say it is a note that already exists (link)."""
+    via: Literal["add", "skip", "link"]
+    name: str | None = Field(default=None, max_length=200)
+    type: str | None = Field(default=None, max_length=40)
 
 
 # --- Rate limiting -----------------------------------------------------------
@@ -921,6 +930,83 @@ async def answer_by_voice(date: str, qid: str, audio: UploadFile):
     return await run_in_threadpool(
         _update_answer, date, qid,
         {"via": "voice", "text": None, "audio": f"{ANSWERS_DIR}/{qid}{suffix}", "at": now})
+
+
+# --- Lists additions ---------------------------------------------------------
+#
+# After a day installs, the memoir pipeline writes `<date>/additions.json`: new
+# Reading List titles and Food places the parser heard. The app only records the
+# owner's `decision` per item; the pipeline (host side, it can see the Reading
+# List and Food folders) writes the notes on its next run. See .claude/docs/lists.md.
+
+ADDITIONS_NAME = "additions.json"
+ADDITION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,60}$")
+
+
+def _additions_file(date: str) -> Path:
+    if not DATE_RE.match(date):
+        raise HTTPException(status_code=400, detail="Bad date")
+    return VAULT_RECORDINGS_DIR / date / ADDITIONS_NAME
+
+
+def _public_additions(date: str, data: dict) -> dict:
+    items = [{k: it.get(k) for k in ("id", "kind", "name", "media_kind", "status", "type",
+                                     "note", "match", "decision", "applied")}
+             for it in data.get("items", [])]
+    return {"date": date, "types": data.get("types") or [], "items": items}
+
+
+@app.get("/api/additions")
+def list_additions():
+    """Days with proposed additions that aren't settled and applied yet, newest first."""
+    days = []
+    if VAULT_RECORDINGS_DIR.is_dir():
+        for path in VAULT_RECORDINGS_DIR.glob(f"*/{ADDITIONS_NAME}"):
+            date = path.parent.name
+            data = _read_questions(path) if DATE_RE.match(date) else None
+            if not data:
+                continue
+            day = _public_additions(date, data)
+            if any(not it["applied"] for it in day["items"]):
+                days.append(day)
+    return sorted(days, key=lambda d: d["date"], reverse=True)
+
+
+def _update_addition(date: str, item_id: str, decision: dict | None) -> dict:
+    if not ADDITION_ID_RE.match(item_id):
+        raise HTTPException(status_code=400, detail="Bad item id")
+    path = _additions_file(date)
+    with _questions_lock:
+        data = _read_questions(path)
+        if data is None:
+            raise HTTPException(status_code=404, detail="No additions for that day")
+        item = next((i for i in data.get("items", []) if i.get("id") == item_id), None)
+        if item is None:
+            raise HTTPException(status_code=404, detail="No such item")
+        if item.get("applied"):
+            raise HTTPException(status_code=409, detail="Already written to the vault")
+        item["decision"] = decision
+        try:
+            _write_questions(path, data)
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=f"Could not save to vault: {exc}")
+    return _public_additions(date, data)
+
+
+@app.post("/api/additions/{date}/{item_id}")
+def decide_addition(date: str, item_id: str, payload: AdditionDecision):
+    decision: dict = {"via": payload.via, "at": datetime.now(timezone.utc).isoformat()}
+    if payload.via == "add":
+        if payload.name and payload.name.strip():
+            decision["name"] = payload.name.strip()
+        if payload.type and payload.type.strip():
+            decision["type"] = payload.type.strip()
+    return _update_addition(date, item_id, decision)
+
+
+@app.delete("/api/additions/{date}/{item_id}")
+def clear_addition(date: str, item_id: str):
+    return _update_addition(date, item_id, None)
 
 
 # --- Static files (MUST be mounted after all API routes) ---------------------

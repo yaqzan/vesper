@@ -4,10 +4,11 @@ import Recorder from './components/Recorder.jsx'
 import CalendarView from './components/CalendarView.jsx'
 import TranscriptList from './components/TranscriptList.jsx'
 import QuestionsView from './components/QuestionsView.jsx'
+import ListsView from './components/ListsView.jsx'
 import PendingUploads from './components/PendingUploads.jsx'
 import NavProgressRing from './components/NavProgressRing.jsx'
 import SettingsOverlay from './components/SettingsOverlay.jsx'
-import { MicIcon, CalendarIcon, BookIcon, QuestionIcon, VesperGlyph, SettingsIcon } from './components/icons.jsx'
+import { MicIcon, CalendarIcon, BookIcon, QuestionIcon, ListIcon, VesperGlyph, SettingsIcon } from './components/icons.jsx'
 
 import {
   checkHealth,
@@ -16,6 +17,7 @@ import {
   deleteTranscript,
   updateTranscript,
   fetchQuestions,
+  fetchAdditions,
 } from './lib/api.js'
 import { initDB, getAllPending, deletePending } from './lib/db.js'
 import useUploadQueue from './lib/useUploadQueue.js'
@@ -27,6 +29,7 @@ const TABS = [
   { id: 'calendar', label: 'Calendar', Icon: CalendarIcon },
   { id: 'entries', label: 'Entries', Icon: BookIcon },
   { id: 'questions', label: 'Questions', Icon: QuestionIcon },
+  { id: 'lists', label: 'Lists', Icon: ListIcon },
 ]
 
 // connState: 'checking' | 'ok' | 'down'
@@ -40,6 +43,9 @@ export default function App() {
   // Days the memoir pipeline is holding until its questions are answered.
   const [questionDays, setQuestionDays] = useState([])
   const [questionsLoaded, setQuestionsLoaded] = useState(false)
+  // Reading List / Food additions the pipeline proposes after a day is parsed.
+  const [additionDays, setAdditionDays] = useState([])
+  const [additionsLoaded, setAdditionsLoaded] = useState(false)
 
   const [activeTab, setActiveTab] = useState('record')
   const [filterDate, setFilterDate] = useState(null)
@@ -81,6 +87,20 @@ export default function App() {
     } finally {
       setQuestionsLoaded(true)
     }
+  }, [])
+
+  const loadAdditions = useCallback(async () => {
+    try {
+      setAdditionDays(await fetchAdditions())
+    } catch (err) {
+      console.warn('[vesper] Could not load lists:', err)
+    } finally {
+      setAdditionsLoaded(true)
+    }
+  }, [])
+
+  const replaceAdditionDay = useCallback((day) => {
+    setAdditionDays((days) => days.map((d) => (d.date === day.date ? day : d)))
   }, [])
 
   // An answer call returns the whole day; swap it in place.
@@ -154,8 +174,11 @@ export default function App() {
   }, [connState, refreshData])
 
   useEffect(() => {
-    if (connState === 'ok') loadQuestions()
-  }, [connState, loadQuestions, activeTab])
+    if (connState === 'ok') {
+      loadQuestions()
+      loadAdditions()
+    }
+  }, [connState, loadQuestions, loadAdditions, activeTab])
 
   // A spoken answer turns into text once the worker gets to it.
   const voicePending = questionDays.some((d) => d.questions.some((q) => q.answer?.pending))
@@ -164,6 +187,9 @@ export default function App() {
     const timer = setInterval(loadQuestions, 4000)
     return () => clearInterval(timer)
   }, [voicePending, loadQuestions])
+
+  const openAdditions = additionDays.reduce(
+    (n, d) => n + d.items.filter((i) => !i.decision && !i.applied).length, 0)
 
   const openQuestions = questionDays.reduce(
     (n, d) => n + d.questions.filter((q) => !q.answer).length, 0)
@@ -324,6 +350,14 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'lists' && (
+          <ListsView
+            days={additionDays}
+            loaded={additionsLoaded}
+            onDayChange={replaceAdditionDay}
+          />
+        )}
+
         {activeTab === 'entries' && (
           <TranscriptList
             transcripts={transcripts}
@@ -366,6 +400,11 @@ export default function App() {
                 {id === 'questions' && openQuestions > 0 && (
                   <span className={styles.badge} aria-label={`${openQuestions} unanswered`}>
                     {openQuestions > 99 ? '99+' : openQuestions}
+                  </span>
+                )}
+                {id === 'lists' && openAdditions > 0 && (
+                  <span className={styles.badge} aria-label={`${openAdditions} to review`}>
+                    {openAdditions > 99 ? '99+' : openAdditions}
                   </span>
                 )}
               </span>

@@ -184,3 +184,37 @@ export async function answerByVoice(date, qid, blob, filename) {
   if (!response.ok) throw await asError(response, 'Could not upload answer')
   return response.json()
 }
+
+// --- Lists additions --------------------------------------------------------
+// New Reading List titles and Food places the memoir pipeline heard. The app only
+// records add / skip / link; the pipeline writes the notes. See .claude/docs/lists.md.
+
+/** @returns {Promise<Array<{date, types, items: Array}>>} newest day first */
+export async function fetchAdditions() {
+  const response = await fetch('/api/additions')
+  if (!response.ok) throw await asError(response, 'Could not load lists')
+  return response.json()
+}
+
+/** via: 'add' ({name, type} optional overrides) | 'skip' | 'link'. Returns the day. */
+export async function decideAddition(date, id, { via, name, type }) {
+  const response = await fetch(
+    `/api/additions/${encodeURIComponent(date)}/${encodeURIComponent(id)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ via, name, type }),
+    },
+  )
+  if (!response.ok) throw await asError(response, 'Could not save')
+  return response.json()
+}
+
+export async function clearAddition(date, id) {
+  const response = await fetch(
+    `/api/additions/${encodeURIComponent(date)}/${encodeURIComponent(id)}`,
+    { method: 'DELETE' },
+  )
+  if (!response.ok) throw await asError(response, 'Could not clear')
+  return response.json()
+}
