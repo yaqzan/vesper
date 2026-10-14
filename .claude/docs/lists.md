@@ -46,7 +46,14 @@ new title/place:
 - Board games are not Reading List items; skip them in the app (the parser links shelf games to
   their Board Games note, so they normally aren't proposed).
 
+- **Status updates (`kind: "update"`):** an existing Reading List note whose `Status` is
+  `Current`/blank, when a day says finished/dropped, is proposed as "Current -> Finished". Applying
+  sets `Status` (+ `Finished` date if missing) and nothing else; any other status is left alone
+  (the old file goes to `out/replaced-media/`).
+- **Rating (optional, in the app):** whole stars for titles (`Score /5` as ⭐️ x N, set only when
+  the note's is blank), halves for restaurants (`rating:`). A "3/5"-style figure in the parser's
+  note pre-fills the picker (`rating_hint`). Hours/Notes are never written.
+
 ## Not built
 
-- Updating an existing Reading List note's status from a later day (Current -> Finished).
 - Adding the new day's memoir link to an existing Food place's `memoirs`.

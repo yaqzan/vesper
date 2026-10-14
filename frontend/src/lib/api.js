@@ -196,14 +196,14 @@ export async function fetchAdditions() {
   return response.json()
 }
 
-/** via: 'add' ({name, type} optional overrides) | 'skip' | 'link'. Returns the day. */
-export async function decideAddition(date, id, { via, name, type }) {
+/** via: 'add' ({name, type, rating} optional) | 'skip' | 'link'. Returns the day. */
+export async function decideAddition(date, id, { via, name, type, rating }) {
   const response = await fetch(
     `/api/additions/${encodeURIComponent(date)}/${encodeURIComponent(id)}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ via, name, type }),
+      body: JSON.stringify({ via, name, type, rating }),
     },
   )
   if (!response.ok) throw await asError(response, 'Could not save')

@@ -113,6 +113,7 @@ class AdditionDecision(BaseModel):
     via: Literal["add", "skip", "link"]
     name: str | None = Field(default=None, max_length=200)
     type: str | None = Field(default=None, max_length=40)
+    rating: float | None = Field(default=None, ge=0.5, le=5)
 
 
 # --- Rate limiting -----------------------------------------------------------
@@ -951,7 +952,8 @@ def _additions_file(date: str) -> Path:
 
 def _public_additions(date: str, data: dict) -> dict:
     items = [{k: it.get(k) for k in ("id", "kind", "name", "media_kind", "status", "type",
-                                     "note", "match", "decision", "applied")}
+                                     "note", "match", "decision", "applied",
+                                     "rating_hint", "current_status")}
              for it in data.get("items", [])]
     return {"date": date, "types": data.get("types") or [], "items": items}
 
@@ -1001,6 +1003,8 @@ def decide_addition(date: str, item_id: str, payload: AdditionDecision):
             decision["name"] = payload.name.strip()
         if payload.type and payload.type.strip():
             decision["type"] = payload.type.strip()
+        if payload.rating:
+            decision["rating"] = payload.rating
     return _update_addition(date, item_id, decision)
 
 

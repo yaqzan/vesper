@@ -13,6 +13,7 @@ import styles from './ListsView.module.css'
 
 const APPLIED_LABEL = {
   created: 'Added',
+  updated: 'Updated',
   exists: 'Already in the vault',
   skipped: 'Skipped',
   linked: 'Already there',
@@ -23,16 +24,24 @@ function decisionLabel(item) {
   const d = item.decision
   if (d.via === 'skip') return 'Skipped'
   if (d.via === 'link') return `Already there${item.match ? `: ${item.match}` : ''}`
+  const rated = d.rating ? ` · rated ${d.rating}` : ''
+  if (item.kind === 'update') return `Will mark “${item.name}” ${item.status}${rated}`
   const where = item.kind === 'restaurant' ? 'Food' : `Reading List (${d.type || item.type})`
-  return `Will add “${d.name || item.name}” to ${where}`
+  return `Will add “${d.name || item.name}” to ${where}${rated}`
 }
 
 function ItemCard({ date, item, types, onDayChange }) {
   const [name, setName] = useState(item.name)
   const [type, setType] = useState(item.type || 'Other')
+  const [rating, setRating] = useState(item.rating_hint ? String(item.rating_hint) : '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const isUpdate = item.kind === 'update'
   const isMedia = item.kind === 'media'
+  // Titles take whole stars; restaurants take halves.
+  const ratingOptions = item.kind === 'restaurant'
+    ? ['1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5']
+    : ['1', '2', '3', '4', '5']
 
   const run = async (fn) => {
     setBusy(true)
@@ -50,13 +59,16 @@ function ItemCard({ date, item, types, onDayChange }) {
     via,
     name: via === 'add' && name.trim() !== item.name ? name.trim() : undefined,
     type: via === 'add' && isMedia && type !== item.type ? type : undefined,
+    rating: via === 'add' && rating ? Number(rating) : undefined,
   }))
 
   return (
     <article className={`${shared.card} ${item.decision ? shared.answered : ''}`}>
       <p className={styles.kind}>
-        {isMedia ? (item.media_kind || 'title') : 'restaurant'}
-        {isMedia && item.status && ` · ${item.status}`}
+        {item.kind === 'restaurant' ? 'restaurant' : (item.media_kind || 'title')}
+        {isUpdate
+          ? ` · ${item.current_status} → ${item.status}`
+          : isMedia && item.status && ` · ${item.status}`}
       </p>
       <p className={shared.question}>{item.name}</p>
       {item.note && <p className={shared.why}>{item.note}</p>}
@@ -89,13 +101,25 @@ function ItemCard({ date, item, types, onDayChange }) {
             </button>
           )}
           <div className={shared.inputRow}>
-            <input
-              className={shared.input}
-              value={name}
+            {!isUpdate && (
+              <input
+                className={shared.input}
+                value={name}
+                disabled={busy}
+                onChange={(e) => setName(e.target.value)}
+                aria-label="Name"
+              />
+            )}
+            <select
+              className={styles.select}
+              value={rating}
               disabled={busy}
-              onChange={(e) => setName(e.target.value)}
-              aria-label="Name"
-            />
+              onChange={(e) => setRating(e.target.value)}
+              aria-label="Rating"
+            >
+              <option value="">No rating</option>
+              {ratingOptions.map((r) => <option key={r} value={r}>{`${r} / 5`}</option>)}
+            </select>
             {isMedia && (
               <select
                 className={styles.select}
@@ -112,10 +136,10 @@ function ItemCard({ date, item, types, onDayChange }) {
             <button
               type="button"
               className={shared.guess}
-              disabled={busy || !name.trim()}
+              disabled={busy || (!isUpdate && !name.trim())}
               onClick={() => decide('add')}
             >
-              {isMedia ? 'Add to Reading List' : 'Add to Food'}
+              {isUpdate ? `Mark ${item.status.toLowerCase()}` : isMedia ? 'Add to Reading List' : 'Add to Food'}
             </button>
             <button
               type="button"
