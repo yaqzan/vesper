@@ -53,3 +53,28 @@
   gap: 8px 18px;
   margin-top: 14px;
 }
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tabBtn {
+  flex: 1 1 0;
+  padding: 9px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--vsp-border-strong);
+  background: transparent;
+  color: var(--vsp-text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tabOn {
+  border-color: rgba(201, 168, 76, 0.45);
+  background: rgba(201, 168, 76, 0.14);
+  color: var(--vsp-gold-bright);
+}

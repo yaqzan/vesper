@@ -173,8 +173,15 @@ function ItemCard({ date, item, types, onDayChange }) {
 }
 
 export default function ListsView({ days, loaded, onDayChange }) {
-  const open = days.reduce(
-    (n, d) => n + d.items.filter((i) => !i.decision && !i.applied).length, 0)
+  const [view, setView] = useState('todo')
+  const isDone = (i) => Boolean(i.decision || i.applied)
+  const count = (pred) => days.reduce((n, d) => n + d.items.filter(pred).length, 0)
+  const open = count((i) => !isDone(i))
+  const done = count(isDone)
+  const shown = days
+    .map((d) => ({ ...d, items: d.items.filter((i) => isDone(i) === (view === 'done')) }))
+    .filter((d) => d.items.length)
+
   return (
     <div className={shared.wrap}>
       <header className={shared.header}>
@@ -186,8 +193,33 @@ export default function ListsView({ days, loaded, onDayChange }) {
               ? `${open} new titles and places heard in your days. Add what you want kept.`
               : 'Nothing to review. New titles and places show up here after a day is parsed.'}
         </p>
+        <div className={styles.tabs} role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'todo'}
+            className={`${styles.tabBtn} ${view === 'todo' ? styles.tabOn : ''}`}
+            onClick={() => setView('todo')}
+          >
+            To review ({open})
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'done'}
+            className={`${styles.tabBtn} ${view === 'done' ? styles.tabOn : ''}`}
+            onClick={() => setView('done')}
+          >
+            Decided ({done})
+          </button>
+        </div>
       </header>
-      {days.map((day) => (
+      {loaded && shown.length === 0 && (
+        <p className={shared.sub}>
+          {view === 'todo' ? 'All caught up.' : 'Nothing decided yet.'}
+        </p>
+      )}
+      {shown.map((day) => (
         <section key={day.date} className={shared.day}>
           <h2 className={shared.dayTitle}>{formatLongDate(day.date)}</h2>
           {day.items.map((item) => (
