@@ -77,11 +77,14 @@ function QuoteContext({ date, qid }) {
 }
 
 export default function QuestionsView({ days, loaded, onDayChange }) {
-  const open = days.reduce(
-    (n, d) => n + d.questions.filter((q) => !q.answer).length, 0)
-  const again = days.reduce(
-    (n, d) => n + d.questions.filter(
-      (q) => q.answer?.via === 'unsure' || q.answer?.via === 'wrong').length, 0)
+  const [view, setView] = useState('todo')
+  const count = (pred) => days.reduce((n, d) => n + d.questions.filter(pred).length, 0)
+  const open = count((q) => !q.answer)
+  const answered = count((q) => Boolean(q.answer))
+  const again = count((q) => q.answer?.via === 'unsure' || q.answer?.via === 'wrong')
+  const shown = days
+    .map((d) => ({ ...d, questions: d.questions.filter((q) => Boolean(q.answer) === (view === 'done')) }))
+    .filter((d) => d.questions.length)
 
   return (
     <div className={styles.wrap}>
@@ -96,9 +99,34 @@ export default function QuestionsView({ days, loaded, onDayChange }) {
                 ? `Nothing to answer. ${again} being looked at again with more context.`
                 : 'Nothing to answer. New questions show up here after a day is parsed.'}
         </p>
+        <div className={styles.tabs} role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'todo'}
+            className={`${styles.tabBtn} ${view === 'todo' ? styles.tabOn : ''}`}
+            onClick={() => setView('todo')}
+          >
+            To answer ({open})
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'done'}
+            className={`${styles.tabBtn} ${view === 'done' ? styles.tabOn : ''}`}
+            onClick={() => setView('done')}
+          >
+            Answered ({answered})
+          </button>
+        </div>
       </header>
 
-      {days.map((day) => (
+      {loaded && shown.length === 0 && (
+        <p className={styles.sub}>
+          {view === 'todo' ? 'All caught up.' : 'Nothing answered yet.'}
+        </p>
+      )}
+      {shown.map((day) => (
         <section key={day.date} className={styles.day}>
           <h2 className={styles.dayTitle}>{formatLongDate(day.date)}</h2>
           {day.questions.map((q) => (

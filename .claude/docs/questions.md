@@ -76,7 +76,7 @@ belongs in the pipeline's data (mishearings / people config), not in an answer.
 
 ## App
 
-Fourth tab, **Questions**, with a badge of unanswered questions. One card per question: the
+Fourth tab, **Questions**, with a badge of unanswered questions and a To answer / Answered split. One card per question: the
 question, the transcript quote, **Show context** (transcript around the quote, highlighted, plus
 "Recorded Sun Oct 11 · 8:13 PM · filed under Sat, Oct 10"), a "Yes, <guess>" button when there is a
 guess, a text field, **Not sure** / **Question is wrong** (both: look again; typed text goes along as the
