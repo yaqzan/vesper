@@ -12,7 +12,7 @@
 //
 // Bump CACHE_VERSION to invalidate old shells after a deploy.
 
-const CACHE_VERSION = 'vesper-shell-v18'
+const CACHE_VERSION = 'vesper-shell-v19'
 const SHELL_ASSETS = [
   '/',
   '/index.html',

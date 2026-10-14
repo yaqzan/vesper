@@ -36,6 +36,7 @@ function ItemCard({ date, item, types, onDayChange }) {
   const [rating, setRating] = useState(item.rating_hint ? String(item.rating_hint) : '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [renaming, setRenaming] = useState(false)
   const isUpdate = item.kind === 'update'
   const isMedia = item.kind === 'media'
   // Titles take whole stars; restaurants take halves.
@@ -100,36 +101,40 @@ function ItemCard({ date, item, types, onDayChange }) {
               Same as “{item.match}” (already there)
             </button>
           )}
-          <div className={shared.inputRow}>
-            {!isUpdate && (
-              <input
-                className={shared.input}
-                value={name}
-                disabled={busy}
-                onChange={(e) => setName(e.target.value)}
-                aria-label="Name"
-              />
-            )}
-            <select
-              className={styles.select}
-              value={rating}
+          {renaming && (
+            <input
+              className={`${shared.input} ${styles.rename}`}
+              value={name}
               disabled={busy}
-              onChange={(e) => setRating(e.target.value)}
-              aria-label="Rating"
-            >
-              <option value="">No rating</option>
-              {ratingOptions.map((r) => <option key={r} value={r}>{`${r} / 5`}</option>)}
-            </select>
-            {isMedia && (
+              onChange={(e) => setName(e.target.value)}
+              aria-label="Name"
+            />
+          )}
+          <div className={styles.fields}>
+            <label className={styles.field}>
+              <span className={styles.label}>Rating</span>
               <select
                 className={styles.select}
-                value={type}
+                value={rating}
                 disabled={busy}
-                onChange={(e) => setType(e.target.value)}
-                aria-label="Type"
+                onChange={(e) => setRating(e.target.value)}
               >
-                {[...new Set([type, ...types])].map((t) => <option key={t}>{t}</option>)}
+                <option value="">None</option>
+                {ratingOptions.map((r) => <option key={r} value={r}>{`${r} / 5`}</option>)}
               </select>
+            </label>
+            {isMedia && (
+              <label className={styles.field}>
+                <span className={styles.label}>Type</span>
+                <select
+                  className={styles.select}
+                  value={type}
+                  disabled={busy}
+                  onChange={(e) => setType(e.target.value)}
+                >
+                  {[...new Set([type, ...types])].map((t) => <option key={t}>{t}</option>)}
+                </select>
+              </label>
             )}
           </div>
           <div className={styles.actions}>
@@ -149,6 +154,16 @@ function ItemCard({ date, item, types, onDayChange }) {
             >
               Skip
             </button>
+            {!isUpdate && !renaming && (
+              <button
+                type="button"
+                className={shared.link}
+                disabled={busy}
+                onClick={() => setRenaming(true)}
+              >
+                Rename
+              </button>
+            )}
           </div>
         </>
       )}

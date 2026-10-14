@@ -6,21 +6,50 @@
   color: var(--vsp-text-muted);
 }
 
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vsp-text-muted);
+}
+
 .select {
-  flex: 0 0 auto;
-  max-width: 40%;
-  padding: 10px 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 10px;
   border-radius: 12px;
   border: 1px solid var(--vsp-border-strong);
   background: var(--vsp-elevated);
   color: var(--vsp-text);
   font-family: var(--font-sans);
+  /* 16px stops iOS zooming the page when the field takes focus. */
   font-size: 16px;
+}
+
+.rename {
+  width: 100%;
+  margin-top: 12px;
+  box-sizing: border-box;
 }
 
 .actions {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-top: 12px;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 14px;
 }
