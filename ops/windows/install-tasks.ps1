@@ -33,8 +33,12 @@ function Register-VesperTask {
         [object[]]$Triggers,
         [switch]$Forever
     )
-    $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
-        -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$ScriptPath`""
+    # hidden_run.vbs, not "powershell -WindowStyle Hidden": that still flashes a console
+    # window on every tick (the watchdog/waker fire every 5 min). Same launcher as every
+    # other project's tasks.
+    $action = New-ScheduledTaskAction -Execute 'wscript.exe' `
+        -Argument ("//B //Nologo `"C:\Development\Trader\scripts\hidden_run.vbs`" `"powershell.exe`" " +
+                   "`"-NoProfile`" `"-ExecutionPolicy`" `"Bypass`" `"-File`" `"$ScriptPath`"")
     $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries `
         -DontStopIfGoingOnBatteries -StartWhenAvailable `

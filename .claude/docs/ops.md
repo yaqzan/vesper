@@ -1,5 +1,7 @@
 # Ops infrastructure
 
+**No console flashes.** The Waker/Watchdog/Backup tasks launch via `Trader\scripts\hidden_run.vbs` (`install-tasks.ps1` registers them that way; `powershell -WindowStyle Hidden` flashes a window every tick). Memoir drivers run under `pythonw`, so every `subprocess` call there (`claude -p`, `powershell`, `tasklist`) must pass `creationflags=subprocess.CREATE_NO_WINDOW`. Rules and diagnosis: `~/.claude/docs/no-console-flash.md`.
+
 **watchdog.ps1** -- runs every 5 min via Windows Scheduled Task. Ensures Docker Desktop is up and the vesper container is healthy. Also ensures the `cloudflared` service stays running (used by other apps on this host -- `api.bagholders.ai`, `fantasy-api.yaqzan.dev` -- not by Vesper). Logs to `ops/windows/logs/watchdog.log` (rotates at 512 KB).
 
 **waker.ps1** -- long-running scheduled task ("Vesper Waker"); starts the on-demand `transcriber` container when `/api/queue` reports pending recordings, 10 min back-off after a failed run. Log: `ops/windows/logs/waker.log`. Detail in [transcription.md](transcription.md). The watchdog never starts the transcriber.
