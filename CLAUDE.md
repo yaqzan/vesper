@@ -55,6 +55,10 @@ docker compose restart vesper       # main.py-only changes
 
 **Both changed** -- build first, then restart. Confirm with `curl http://localhost:8000/health`.
 
+## Probing scripts
+
+Never run an unfamiliar script with `--help` to learn its options: a script that ignores its arguments just runs. Read its source (`grep argparse`) first. `.horizon/memoir-v2/driver/scheduled.py` is the scheduled memoir run and does real parses; use `--dry-run` to preview, `run_v2.py` (no `--apply`) is also a dry run. Moving a recording between days: move the `.txt`/audio pair, `POST /api/reindex`, and the memoir parser re-parses stale days itself 20 min after the newest clip.
+
 ## Reference docs
 
 - [memoir-format.md](.claude/docs/memoir-format.md) -- what a processed day looks like (frontmatter, sections, sidecar) and the code steps around the parser model
